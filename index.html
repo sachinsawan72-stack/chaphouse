@@ -28,7 +28,7 @@
   <div class="login-card">
     <div class="brand">THE <span>CHAP HOUSE</span></div>
     <h1>
-      <Center>welcome Back</Center></h1>
+      <Center>Welcome Back</Center></h1>
     <p class="muted">THE CHAP HOUSE ·BY MOVIE TIME CINEMAS</p><p class="muted" style="font-size:12px;margin-top:5px"></p>
     <form id="loginForm">
       <div class="field"><label>Email address</label><input id="loginEmail" type="email" required placeholder="admin@restaurant.com"></div>
@@ -186,17 +186,17 @@ $("forgotBtn").addEventListener("click",async()=>{
   $("loginError").textContent="";$("loginInfo").textContent="";
   if(!configReady()){toast("Please add Firebase configuration first.");return}
   const email=$("loginEmail").value.trim();
-  if(!email){$("loginError").textContent="Pehle upar Email address daalein, phir 'Forgot password?' dabayein.";$("loginEmail").focus();return}
+  if(!email){$("loginError").textContent="Please enter your email address above, then click 'Forgot password?'.";$("loginEmail").focus();return}
   const btn=$("forgotBtn");btn.disabled=true;btn.textContent="Sending…";
   try{
     await sendPasswordResetEmail(auth,email);
-    $("loginInfo").textContent="Password reset link "+email+" par bhej diya gaya hai. Inbox (aur Spam folder) check karein.";
+    $("loginInfo").textContent="A password reset link has been sent to "+email+". Please check your inbox (and spam folder).";
   }catch(err){
     const msg={
-      "auth/invalid-email":"Email address sahi nahi hai.",
-      "auth/user-not-found":"Is email se koi account nahi mila.",
-      "auth/too-many-requests":"Bahut zyada koshish ho gayi. Thodi der baad dobara try karein.",
-      "auth/network-request-failed":"Internet connection check karein."
+      "auth/invalid-email":"The email address is not valid.",
+      "auth/user-not-found":"No account was found with this email.",
+      "auth/too-many-requests":"Too many attempts. Please try again later.",
+      "auth/network-request-failed":"Please check your internet connection."
     }[err.code];
     $("loginError").textContent=msg||err.message;
   }finally{btn.disabled=false;btn.textContent="Forgot password?"}
