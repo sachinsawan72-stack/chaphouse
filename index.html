@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>THE CHAP HOUSE | Restaurant Management</title>
+<script>if(new URLSearchParams(location.search).get("table"))document.documentElement.classList.add("customer-mode")</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -20,6 +21,15 @@
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.formgrid .wide{grid-column:1/-1}.actions{display:flex;gap:7px;flex-wrap:wrap}.empty{text-align:center;color:var(--muted);padding:35px}.order-card{border:1px solid var(--line);border-radius:13px;padding:16px;margin:10px 0;background:#fff}.order-top{display:flex;justify-content:space-between;gap:10px}.order-items{color:#596474;font-size:13px;line-height:1.8;margin:12px 0}.notice{padding:12px 14px;background:#fff7ed;color:#92501f;border-radius:10px;font-size:12px;line-height:1.5;margin:14px 0}.toast{position:fixed;right:22px;bottom:22px;background:#17212d;color:#fff;padding:13px 17px;border-radius:11px;box-shadow:var(--shadow);z-index:20;max-width:360px}.modalback{position:fixed;inset:0;background:#10192388;display:grid;place-items:center;padding:20px;z-index:10}.modal{background:#fff;border-radius:18px;padding:23px;width:min(560px,100%);max-height:90vh;overflow:auto}.modalhead{display:flex;justify-content:space-between;align-items:center}.modalhead h3{font:800 18px Manrope;margin:0}.close{background:#f1f2f4;border-radius:8px;padding:7px 11px}.qrgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:12px}.qrbox{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px;text-align:center}.qrbox div{display:flex;justify-content:center;margin:8px}.qrbox b{font-size:13px}
 @media(max-width:900px){.layout{grid-template-columns:76px 1fr}.sidebar{padding:18px 9px}.sidebar .brand{font-size:0;padding:5px 10px 25px}.sidebar .brand:first-letter{font-size:22px}.side-label{display:none}.navbtn{justify-content:center;font-size:0}.navbtn .sym{font-size:18px}.side-bottom{font-size:0}.stats{grid-template-columns:repeat(2,1fr)}.content{padding:20px}.topbar{padding:0 20px}}
 @media(max-width:560px){.layout{display:block}.sidebar{position:fixed;z-index:8;bottom:0;left:0;right:0;height:64px;flex-direction:row;justify-content:space-around;padding:5px;background:var(--nav)}.sidebar .brand,.side-label,.side-bottom{display:none}.navbtn{margin:0;padding:10px}.main{padding-bottom:65px}.topbar{height:64px}.content{padding:15px}.stats{gap:9px}.stat{padding:13px}.stat strong{font-size:22px}.grid2,.formgrid{grid-template-columns:1fr}.formgrid .wide{grid-column:auto}.pagehead{flex-direction:column}}
+
+/* ---------- CUSTOMER MENU (QR) ---------- */
+#customerView{display:none;min-height:100vh;background:var(--bg);padding-bottom:90px}.customer-mode #customerView{display:block}.customer-mode #loginView,.customer-mode #appView{display:none!important}
+.chead{background:#fff;border-bottom:1px solid var(--line);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}.chead small{color:var(--muted);font-size:11px}.ctable{background:#fff0e9;color:var(--brand);font-weight:800;padding:8px 13px;border-radius:10px;font-size:13px}
+.ccats{display:flex;gap:8px;overflow-x:auto;padding:14px 16px 4px}.chip{white-space:nowrap;padding:8px 14px;border-radius:99px;background:#fff;border:1px solid var(--line);font-weight:700;font-size:13px;color:#344052}.chip.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.cmenu{padding:10px 16px;max-width:760px;margin:auto}.citem{display:flex;gap:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0;align-items:center}.citem img{width:78px;height:78px;border-radius:12px;object-fit:cover;background:#eee;flex:none}.cinfo{flex:1;min-width:0}.cinfo p{margin:3px 0;color:var(--muted);font-size:12px}.cprice{font-weight:800}.cqty{display:flex;align-items:center;gap:9px;flex:none}.cqty button{width:30px;height:30px;border-radius:8px;background:var(--brand);color:#fff;font-weight:800;font-size:16px}.cqty .addbtn{width:auto;padding:0 14px;font-size:12px}.cqty span{font-weight:800;min-width:16px;text-align:center}
+.ctrack{margin:14px 16px 0;background:#fff;border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:14px;padding:14px}.ctrack .tk{display:flex;justify-content:space-between;align-items:center;gap:10px}.ctrack p{margin:8px 0 0;font-size:13px;color:#344052}
+.cbar{position:fixed;left:0;right:0;bottom:0;background:#17212d;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:6}
+.csheet{position:fixed;inset:0;background:#10192388;z-index:10;display:flex;align-items:flex-end;justify-content:center}.csheet-in{background:#fff;width:min(560px,100%);max-height:90vh;overflow:auto;border-radius:18px 18px 0 0;padding:20px}.crow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.ctotal{display:flex;justify-content:space-between;font-size:16px;margin:12px 0}
 </style>
 </head>
 <body>
@@ -40,6 +50,23 @@
     <p id="loginError" style="color:#c94343;font-size:13px"></p>
     <p id="loginInfo" style="color:#16865b;font-size:13px"></p>
   </div>
+</section>
+
+<section id="customerView">
+  <header class="chead"><div><div class="brand">THE <span>CHAP HOUSE</span></div><small>Scan · Order · Enjoy</small></div><div class="ctable" id="cTable">Table</div></header>
+  <div id="cTrack" class="ctrack hidden"></div>
+  <div id="cCats" class="ccats"></div>
+  <div id="cMenu" class="cmenu"><div class="empty">Loading menu…</div></div>
+  <div id="cBar" class="cbar hidden"><div><b id="cBarCount"></b><div id="cBarTotal"></div></div><button class="btn" id="cViewCart">View order</button></div>
+  <div id="cCartSheet" class="csheet hidden"><div class="csheet-in">
+    <div class="modalhead"><h3>Your order</h3><button class="close" id="cCloseCart">✕</button></div>
+    <div id="cCartList"></div>
+    <div class="field"><label>Your name (optional)</label><input id="cName" placeholder="Your name"></div>
+    <div class="field"><label>Notes for the kitchen (optional)</label><textarea id="cNote" rows="2" placeholder="Less spicy, no onion…"></textarea></div>
+    <div class="ctotal"><span>Total</span><b id="cCartTotal"></b></div>
+    <button class="btn full" id="cPlace">Place order</button>
+    <p class="muted" style="font-size:12px;text-align:center">A waiter will confirm your order before it goes to the kitchen.</p>
+  </div></div>
 </section>
 
 <section id="appView" class="layout hidden">
@@ -126,10 +153,13 @@ let app, auth, db, functions, currentUser=null, profile=null;
 let menu=[], staff=[], orders=[], tables=[];
 let unsubscribers=[];
 const $ = id => document.getElementById(id);
+const tableParam=new URLSearchParams(location.search).get("table");
+const isCustomer=!!tableParam;
 const money = n => "₹" + Number(n||0).toLocaleString("en-IN");
 const safe = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function toast(msg){$("toast").textContent=msg;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),3200)}
 function configReady(){return firebaseConfig.apiKey!=="PASTE_API_KEY" && firebaseConfig.projectId!=="PASTE_PROJECT_ID"}
+function beep(){try{const c=new (window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();o.connect(c.destination);o.frequency.value=880;o.start();setTimeout(()=>{o.stop();c.close()},250)}catch(_){}}
 function clearListeners(){unsubscribers.forEach(u=>u());unsubscribers=[]}
 function showLogin(){clearListeners();$("loginView").classList.remove("hidden");$("appView").classList.add("hidden")}
 function showApp(){ $("loginView").classList.add("hidden");$("appView").classList.remove("hidden"); }
@@ -146,8 +176,9 @@ function applyRole(){
 }
 function listenData(){
   clearListeners();
+  let firstOrders=true;
   unsubscribers.push(onSnapshot(collection(db,"menu"),snap=>{menu=snap.docs.map(d=>({id:d.id,...d.data()}));renderMenu();renderStats();}));
-  unsubscribers.push(onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc")),snap=>{orders=snap.docs.map(d=>({id:d.id,...d.data()}));renderOrders();renderKitchen();renderStats();}));
+  unsubscribers.push(onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc")),snap=>{if(!firstOrders&&profile.role!=="chef"){snap.docChanges().forEach(c=>{if(c.type==="added"&&c.doc.data().status==="Pending"){toast("New order from Table "+(c.doc.data().tableNumber||"-"));beep()}})}firstOrders=false;orders=snap.docs.map(d=>({id:d.id,...d.data()}));renderOrders();renderKitchen();renderStats();}));
   if(profile.role==="admin"){
     unsubscribers.push(onSnapshot(collection(db,"users"),snap=>{staff=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.role==="waiter"||x.role==="chef");renderStaff();}));
     unsubscribers.push(onSnapshot(collection(db,"tables"),snap=>{tables=snap.docs.map(d=>({id:d.id,...d.data()}));}));
@@ -167,6 +198,7 @@ async function loadProfile(user){
 if(configReady()){
   app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);functions=getFunctions(app);
   onAuthStateChanged(auth,async user=>{
+    if(isCustomer)return;
     if(!user){currentUser=null;profile=null;showLogin();return;}
     currentUser=user;
     try{await loadProfile(user)}catch(e){toast(e.message);await signOut(auth)}
@@ -292,7 +324,7 @@ $("printQRBtn").onclick=()=>window.print();
 
 /* ORDERS / WAITER / KITCHEN */
 function orderCard(o,mode){
- const items=(o.items||[]).map(i=>`${safe(i.name)} × ${i.qty}`).join("<br>");
+ const items=(o.items||[]).map(i=>`${safe(i.name)} × ${i.qty}`).join("<br>")+(o.customerName?`<br><i>Customer: ${safe(o.customerName)}</i>`:"")+(o.note?`<br><i>Note: ${safe(o.note)}</i>`:"");
  let buttons="";
  if(mode==="waiter"&&o.status==="Pending")buttons=`<button class="btn success small" data-accept="${o.id}">Accept & print KOT</button><button class="btn danger small" data-reject="${o.id}">Reject</button>`;
  if(mode==="chef"&&o.status==="Accepted")buttons=`<button class="btn small" data-status="Preparing" data-id="${o.id}">Start preparing</button>`;
@@ -304,7 +336,7 @@ function renderOrders(){
  const filter=$("orderFilter")?.value||"";
  const list=orders.filter(o=>!filter||o.status===filter);
  $("ordersList").innerHTML=list.length?list.map(o=>orderCard(o,"waiter")).join(""):'<div class="empty">No orders found.</div>';
- $("ordersList").querySelectorAll("[data-accept]").forEach(b=>b.onclick=async()=>{const o=orders.find(x=>x.id===b.dataset.accept);if(!o||o.status!=="Pending")return;await updateDoc(doc(db,"orders",o.id),{status:"Accepted",acceptedAt:serverTimestamp(),acceptedBy:currentUser.uid});printKOT(o);toast("Order accepted. KOT sent to print.")});
+ $("ordersList").querySelectorAll("[data-accept]").forEach(b=>b.onclick=async()=>{const o=orders.find(x=>x.id===b.dataset.accept);if(!o||o.status!=="Pending")return;const w=window.open("","_blank","width=380,height=600");try{await updateDoc(doc(db,"orders",o.id),{status:"Accepted",acceptedAt:serverTimestamp(),acceptedBy:currentUser.uid});printKOT(o,w);toast("Order accepted. KOT sent to print.")}catch(err){if(w)w.close();toast(err.message)}});
  $("ordersList").querySelectorAll("[data-reject]").forEach(b=>b.onclick=async()=>{const o=orders.find(x=>x.id===b.dataset.reject);if(o?.status==="Pending")await updateDoc(doc(db,"orders",o.id),{status:"Rejected",rejectedAt:serverTimestamp()})});
  $("ordersList").querySelectorAll("[data-status]").forEach(b=>b.onclick=()=>updateDoc(doc(db,"orders",b.dataset.id),{status:b.dataset.status,updatedAt:serverTimestamp()}));
 }
@@ -314,10 +346,10 @@ function renderKitchen(){
  $("kitchenList").innerHTML=list.length?list.map(o=>orderCard(o,"chef")).join(""):'<div class="panel empty">No active kitchen tickets. Only accepted orders appear here.</div>';
  $("kitchenList").querySelectorAll("[data-status]").forEach(b=>b.onclick=()=>updateDoc(doc(db,"orders",b.dataset.id),{status:b.dataset.status,updatedAt:serverTimestamp()}));
 }
-function printKOT(o){
- const w=window.open("","_blank","width=380,height=600");if(!w){toast("Allow pop-ups to print KOT");return}
+function printKOT(o,pre){
+ const w=pre||window.open("","_blank","width=380,height=600");if(!w){toast("Allow pop-ups to print KOT");return}
  const rows=(o.items||[]).map(i=>`<tr><td>${safe(i.name)}</td><td>${i.qty}</td></tr>`).join("");
- w.document.write(`<html><head><title>KOT</title><style>body{font:14px monospace;width:280px;margin:12px}h2,p{text-align:center}table{width:100%;border-collapse:collapse}td{padding:7px 0;border-bottom:1px dashed #aaa}</style></head><body><h2>THE CHAP HOUSE</h2><p>Add Level 3, SLN Terminus<br>Jayabheri Enclave, Gachibowli<br>Hyderabad, Telangana 500032</p><hr><p>KITCHEN ORDER TICKET<br>Order ${safe(o.id.slice(-6))}<br>TABLE ${safe(o.tableNumber||o.table||"-")}</p><hr><table>${rows}</table><hr><p>WAITER ACCEPTED</p><script>window.onload=()=>window.print();<\/script></body></html>`);w.document.close();
+ w.document.write(`<html><head><title>KOT</title><style>body{font:14px monospace;width:280px;margin:12px}h2,p{text-align:center}table{width:100%;border-collapse:collapse}td{padding:7px 0;border-bottom:1px dashed #aaa}</style></head><body><h2>THE CHAP HOUSE</h2><p>Add Level 3, SLN Terminus<br>Jayabheri Enclave, Gachibowli<br>Hyderabad, Telangana 500032</p><hr><p>KITCHEN ORDER TICKET<br>Order ${safe(o.id.slice(-6))}<br>TABLE ${safe(o.tableNumber||o.table||"-")}</p><hr><table>${rows}</table><hr>${o.note?"<p>NOTE: "+safe(o.note)+"</p><hr>":""}<p>WAITER ACCEPTED</p><script>window.onload=()=>window.print();<\/script></body></html>`);w.document.close();
 }
 function renderStats(){
  $("statOrders").textContent=orders.length;
@@ -327,6 +359,74 @@ function renderStats(){
  const recent=orders.slice(0,5);
  $("recentOrders").innerHTML=recent.length?recent.map(o=>`<div class="order-top" style="padding:12px 0;border-bottom:1px solid var(--line)"><div><b>Table ${safe(o.tableNumber||o.table||"-")}</b><div class="muted" style="font-size:12px">Order #${safe(o.id.slice(-6))}</div></div><div style="text-align:right"><b>${money(o.total)}</b><div class="muted">${safe(o.status)}</div></div></div>`).join(""):'No orders yet.';
 }
+/* ---------- CUSTOMER MENU (opened from table QR: ?table=N) ---------- */
+function initCustomer(){
+  const tableNo=parseInt(tableParam,10)||tableParam;
+  const LS="chap_last_order_"+tableNo;
+  let cmenu=[],cart={},activeCat="All",unsub=null;
+  $("cTable").textContent="Table "+tableNo;
+  const total=()=>Object.values(cart).reduce((s,x)=>s+x.price*x.qty,0);
+  const count=()=>Object.values(cart).reduce((s,x)=>s+x.qty,0);
+  onSnapshot(collection(db,"menu"),snap=>{
+    cmenu=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.available!==false);
+    renderCMenu();
+  },err=>{$("cMenu").innerHTML='<div class="empty">Could not load the menu. '+safe(err.message)+'</div>'});
+  function renderCMenu(){
+    const cats=["All",...new Set(cmenu.map(x=>x.category).filter(Boolean))];
+    $("cCats").innerHTML=cats.map(c=>`<button class="chip ${c===activeCat?"on":""}" data-cat="${safe(c)}">${safe(c)}</button>`).join("");
+    const list=cmenu.filter(x=>activeCat==="All"||x.category===activeCat);
+    $("cMenu").innerHTML=list.length?list.map(x=>{
+      const q=cart[x.id]?.qty||0;
+      return `<div class="citem"><img src="${safe(x.image||"https://placehold.co/90x90?text=Food")}" onerror="this.src='https://placehold.co/90x90?text=Food'"><div class="cinfo"><b>${safe(x.name)}</b><p>${safe(x.description||"")}</p><div class="cprice">${money(x.price)}</div></div><div class="cqty">${q?`<button data-sub="${x.id}">−</button><span>${q}</span><button data-add="${x.id}">+</button>`:`<button class="addbtn" data-add="${x.id}">ADD</button>`}</div></div>`;
+    }).join(""):'<div class="empty">No items available right now.</div>';
+    renderBar();
+  }
+  function renderBar(){
+    const n=count();
+    $("cBar").classList.toggle("hidden",n===0);
+    $("cBarCount").textContent=n+(n===1?" item":" items");
+    $("cBarTotal").textContent=money(total());
+  }
+  function renderCart(){
+    if(!count()){$("cCartSheet").classList.add("hidden");return}
+    $("cCartList").innerHTML=Object.values(cart).map(x=>`<div class="crow"><div><b>${safe(x.name)}</b><div class="muted" style="font-size:12px">${money(x.price)} each</div></div><div class="cqty"><button data-sub="${x.id}">−</button><span>${x.qty}</span><button data-add="${x.id}">+</button></div><b>${money(x.price*x.qty)}</b></div>`).join("");
+    $("cCartTotal").textContent=money(total());
+  }
+  function refresh(){renderCMenu();if(!$("cCartSheet").classList.contains("hidden"))renderCart()}
+  $("customerView").addEventListener("click",e=>{
+    const t=e.target.closest("button");if(!t)return;
+    if(t.dataset.cat){activeCat=t.dataset.cat;renderCMenu();return}
+    if(t.dataset.add){const it=cmenu.find(x=>x.id===t.dataset.add);if(!it)return;cart[it.id]=cart[it.id]||{id:it.id,name:it.name,price:Number(it.price)||0,qty:0};cart[it.id].qty++;refresh();return}
+    if(t.dataset.sub){const c=cart[t.dataset.sub];if(c){c.qty--;if(c.qty<=0)delete cart[t.dataset.sub]}refresh();return}
+  });
+  $("cViewCart").onclick=()=>{renderCart();$("cCartSheet").classList.remove("hidden")};
+  $("cCloseCart").onclick=()=>$("cCartSheet").classList.add("hidden");
+  $("cPlace").onclick=async()=>{
+    if(!count())return;
+    const btn=$("cPlace");btn.disabled=true;btn.textContent="Placing order…";
+    try{
+      const items=Object.values(cart).map(x=>({id:x.id,name:x.name,price:x.price,qty:x.qty}));
+      const ref=await addDoc(collection(db,"orders"),{tableNumber:tableNo,table:tableNo,items,total:total(),status:"Pending",customerName:$("cName").value.trim(),note:$("cNote").value.trim(),createdAt:serverTimestamp()});
+      try{localStorage.setItem(LS,ref.id)}catch(_){}
+      cart={};$("cNote").value="";$("cCartSheet").classList.add("hidden");refresh();track(ref.id);
+      window.scrollTo({top:0,behavior:"smooth"});
+    }catch(err){alert("Could not place the order: "+err.message)}
+    finally{btn.disabled=false;btn.textContent="Place order"}
+  };
+  function track(id){
+    if(unsub)unsub();
+    unsub=onSnapshot(doc(db,"orders",id),snap=>{
+      if(!snap.exists()){$("cTrack").classList.add("hidden");return}
+      const o=snap.data(),st=o.status;
+      const msg={Pending:"Waiting for the waiter to confirm your order…",Accepted:"Order confirmed and sent to the kitchen.",Preparing:"Your food is being prepared.",Ready:"Your order is ready and will be at your table shortly.",Served:"Served. Enjoy your meal!",Rejected:"Sorry, your order could not be accepted. Please call a waiter."}[st]||st;
+      const cls=st==="Pending"?"pending":st==="Preparing"?"prep":st==="Rejected"?"off":"";
+      $("cTrack").classList.remove("hidden");
+      $("cTrack").innerHTML=`<div class="tk"><b>Your order #${safe(id.slice(-6))}</b><span class="pill ${cls}">${safe(st)}</span></div><p>${safe(msg)}</p><p class="muted">${(o.items||[]).map(i=>safe(i.name)+" × "+i.qty).join(", ")} · <b>${money(o.total)}</b></p>`;
+    },()=>{});
+  }
+  try{const last=localStorage.getItem(LS);if(last)track(last)}catch(_){}
+}
+if(isCustomer){ if(configReady())initCustomer(); else $("cMenu").innerHTML='<div class="empty">Restaurant is not configured yet.</div>'; }
 </script>
 </body>
 </html>
