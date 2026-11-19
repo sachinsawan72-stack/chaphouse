@@ -79,7 +79,7 @@
 
       <section id="page-staff" class="page hidden admin-only">
         <div class="pagehead"><div><h1>Staff accounts</h1><p>Create and manage secure waiter and chef logins.</p></div><button class="btn" id="addStaffBtn">＋ Create staff account</button></div>
-        <div class="notice">Staff accounts are created securely through a Firebase Cloud Function. Passwords are handled by Firebase Authentication and are never displayed here.</div>
+        <div class="notice">Staff accounts are created through Firebase Authentication. Passwords are handled by Firebase and are never stored or displayed here.</div>
         <div class="panel"><div class="toolbar"><input id="staffSearch" placeholder="Search staff…"><select id="staffRoleFilter"><option value="">All roles</option><option value="waiter">Waiters</option><option value="chef">Chefs</option></select></div>
         <div class="tablewrap"><table><thead><tr><th>Name</th><th>Email / Login ID</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody id="staffRows"></tbody></table></div></div>
       </section>
@@ -106,8 +106,8 @@
 <div id="modalRoot"></div><div id="toast" class="toast hidden"></div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
@@ -232,7 +232,7 @@ function foodModal(item=null){
   $("foodForm").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const data={name:f.get("name").trim(),category:f.get("category").trim(),price:Number(f.get("price")),image:f.get("image").trim(),description:f.get("description").trim(),available:f.get("available")==="on",updatedAt:serverTimestamp()};try{if(item)await updateDoc(doc(db,"menu",item.id),data);else await addDoc(collection(db,"menu"),{...data,createdAt:serverTimestamp()});$("modalRoot").innerHTML="";toast(item?"Food item updated":"Food item added")}catch(err){toast(err.message)}};
 }
 
-/* STAFF: secure callable Cloud Function */
+/* STAFF: create login via Firebase Auth (no Cloud Function needed) */
 $("addStaffBtn").onclick=()=>staffModal();
 function staffModal(){
  $("modalRoot").innerHTML=`<div class="modalback"><div class="modal"><div class="modalhead"><h3>Create staff login</h3><button class="close" id="closeModal">✕</button></div><div class="notice">Create a unique email/login ID and temporary password. Share credentials privately with the staff member.</div><form id="staffForm">
@@ -242,11 +242,40 @@ function staffModal(){
  <div class="field"><label>Staff role *</label><select name="role"><option value="waiter">Waiter</option><option value="chef">Chef</option></select></div>
  <button class="btn full">Create account</button></form></div></div>`;
  $("closeModal").onclick=()=>$("modalRoot").innerHTML="";
- $("staffForm").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const create=httpsCallable(functions,"createStaffAccount");const result=await create({name:f.get("name").trim(),email:f.get("email").trim(),password:f.get("password"),role:f.get("role")});$("modalRoot").innerHTML="";toast("Staff account created: "+result.data.email)}catch(err){toast(err.message)}};
+ $("staffForm").onsubmit=async e=>{
+  e.preventDefault();
+  const f=new FormData(e.target);
+  const name=f.get("name").trim(),email=f.get("email").trim(),password=f.get("password"),role=f.get("role");
+  const btn=e.target.querySelector("button");btn.disabled=true;btn.textContent="Creating...";
+  let secondary=null;
+  try{
+    /* A second Firebase app instance is used so the admin stays logged in */
+    secondary=initializeApp(firebaseConfig,"secondary-"+Date.now());
+    const sAuth=getAuth(secondary);
+    const cred=await createUserWithEmailAndPassword(sAuth,email,password);
+    await setDoc(doc(db,"users",cred.user.uid),{name,email,role,active:true,createdAt:serverTimestamp(),createdBy:currentUser.uid});
+    await signOut(sAuth);
+    $("modalRoot").innerHTML="";
+    toast("Staff account created: "+email);
+  }catch(err){
+    const msg={
+      "auth/email-already-in-use":"This email is already registered.",
+      "auth/invalid-email":"The email address is not valid.",
+      "auth/weak-password":"Password is too weak. Use at least 8 characters.",
+      "auth/operation-not-allowed":"Email/Password sign-in is not enabled in Firebase Console (Authentication > Sign-in method).",
+      "permission-denied":"Account was created but the profile could not be saved. Check your Firestore rules.",
+      "auth/network-request-failed":"Please check your internet connection."
+    }[err.code];
+    toast(msg||err.message);
+    btn.disabled=false;btn.textContent="Create account";
+  }finally{
+    if(secondary){try{await deleteApp(secondary)}catch(_){}}
+  }
+};
 }
 function renderStaff(){
  const q=($("staffSearch")?.value||"").toLowerCase(),r=$("staffRoleFilter")?.value||"";
- const list=staff.filter(s=>(s.name||"").toLowerCase().includes(q)||(s.email||"").toLowerCase().includes(q)&&(!r||s.role===r));
+ const list=staff.filter(s=>((s.name||"").toLowerCase().includes(q)||(s.email||"").toLowerCase().includes(q))&&(!r||s.role===r));
  $("staffRows").innerHTML=list.length?list.map(s=>`<tr><td><strong>${safe(s.name)}</strong></td><td>${safe(s.email)}</td><td><span class="pill prep">${safe(s.role)}</span></td><td><span class="pill ${s.active===false?"off":""}">${s.active===false?"Disabled":"Active"}</span></td><td><button class="btn ${s.active===false?"success":"danger"} small" data-staff="${s.id}">${s.active===false?"Enable":"Disable"}</button></td></tr>`).join(""):'<tr><td colspan="5" class="empty">No staff accounts found.</td></tr>';
  $("staffRows").querySelectorAll("[data-staff]").forEach(b=>b.onclick=async()=>{const s=staff.find(x=>x.id===b.dataset.staff);await updateDoc(doc(db,"users",s.id),{active:s.active===false});toast("Staff status updated")});
 }
