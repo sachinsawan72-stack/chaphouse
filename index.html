@@ -376,7 +376,7 @@ const SC_RATE=10;      /* Service charge % on subtotal */
 const GST_RATE=5;      /* Total GST % for food (CGST 2.5% + SGST 2.5%) */
 const RESTAURANT={name:"THE CHAP HOUSE",address:"Add Level 3, SLN Terminus<br>Jayabheri Enclave, Gachibowli<br>Hyderabad, Telangana 500032",gstin:""}; /* put your GSTIN here */
 /* EmailJS (free) - create account at emailjs.com, then paste your keys here */
-const EMAILJS={publicKey:"PASTE_PUBLIC_KEY",serviceId:"PASTE_SERVICE_ID",templateId:"PASTE_TEMPLATE_ID"};
+const EMAILJS={publicKey:"PASTE_PUBLIC_KEY",serviceId:"service_8pjrezj",templateId:"PASTE_TEMPLATE_ID"};
 const emailReady=()=>!!window.emailjs&&!String(EMAILJS.publicKey).startsWith("PASTE")&&!String(EMAILJS.serviceId).startsWith("PASTE")&&!String(EMAILJS.templateId).startsWith("PASTE");
 if(emailReady())window.emailjs.init({publicKey:EMAILJS.publicKey});
 const r2=n=>Math.round((Number(n)+Number.EPSILON)*100)/100;
@@ -422,7 +422,7 @@ function billHTML(o,b){
   ${summaryHTML(b)}${hr}<div style="text-align:center;font-size:12px">Thank you! Visit again.</div></div>`;
 }
 async function sendBillEmail(o,b,email){
-  if(!emailReady())throw new Error("Email is not set up yet. Add your EmailJS keys in the code (EMAILJS settings).");
+  if(!emailReady()){const miss=[];if(!window.emailjs)miss.push("EmailJS script did not load (check internet)");if(String(EMAILJS.publicKey).startsWith("PASTE"))miss.push("Public Key");if(String(EMAILJS.serviceId).startsWith("PASTE"))miss.push("Service ID");if(String(EMAILJS.templateId).startsWith("PASTE"))miss.push("Template ID");throw new Error("Email is not set up. Missing: "+miss.join(", ")+".");}
   await window.emailjs.send(EMAILJS.serviceId,EMAILJS.templateId,{to_email:email,to_name:o.customerName||"Guest",bill_no:o.id.slice(-6).toUpperCase(),subject:"Your bill from "+RESTAURANT.name+" (Table "+(o.tableNumber||o.table||"-")+")",message_html:billHTML(o,b)});
 }
 async function autoEmailBill(o){
