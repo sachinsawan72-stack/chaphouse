@@ -35,6 +35,10 @@
 /* ---------- BILL / IMAGE UPLOAD ---------- */
 .upl{display:flex;gap:12px;align-items:center}.upl img{width:64px;height:64px;border-radius:10px;object-fit:cover;background:#eee;flex:none}.upl input[type=file]{padding:8px}
 .billbox{border:1px dashed #c9ced6;border-radius:12px;padding:12px 14px;margin:12px 0;background:#fff}
+
+/* ---------- REPORTS ---------- */
+.repbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}.repbar label{font-size:12px;color:var(--muted);font-weight:700}.repbar input[type=date]{max-width:160px;padding:9px 10px;border:1px solid var(--line);border-radius:10px}.repbar select{max-width:200px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+#repStats .stat strong{font-size:19px}tfoot td{background:#fafbfc;border-top:2px solid var(--line)}
 </style>
 </head>
 <body>
@@ -85,6 +89,7 @@
     <button class="navbtn admin-only" data-page="tables"><span class="sym">▦</span>Tables & QR</button>
     <button class="navbtn" data-page="orders"><span class="sym">☷</span>Orders</button>
     <button class="navbtn" data-page="kitchen"><span class="sym">♨</span>Kitchen</button>
+    <button class="navbtn admin-only" data-page="reports"><span class="sym">▤</span>Reports</button>
     <div class="side-bottom">THE CHAP HOUSE<br>Add Level 3, SLN Terminus<br>Gachibowli, Hyderabad 500032</div>
   </aside>
   <main class="main">
@@ -126,6 +131,17 @@
       <section id="page-orders" class="page hidden">
         <div class="pagehead"><div><h1>Order management</h1><p>Waiter approval is required before an order can enter the kitchen.</p></div></div>
         <div class="panel"><div class="toolbar"><select id="orderFilter"><option value="">All orders</option><option>Pending</option><option>Accepted</option><option>Preparing</option><option>Ready</option><option>Rejected</option><option>Served</option></select></div><div id="ordersList"></div></div>
+      </section>
+
+      <section id="page-reports" class="page hidden admin-only">
+        <div class="pagehead"><div><h1>Reports</h1><p>Sales, discount and item-wise reports with a date filter.</p></div><div class="actions"><button class="btn secondary" id="repCsv">Download CSV</button><button class="btn secondary" id="repPrint">Print</button></div></div>
+        <div class="panel">
+          <div class="repbar"><label>From</label><input type="date" id="repFrom"><label>To</label><input type="date" id="repTo"><select id="repStatus"><option value="active">All accepted orders</option><option value="Served">Served orders only</option></select></div>
+          <div class="repbar"><button class="btn secondary small" data-range="today">Today</button><button class="btn secondary small" data-range="yesterday">Yesterday</button><button class="btn secondary small" data-range="week">Last 7 days</button><button class="btn secondary small" data-range="month">This month</button><button class="btn secondary small" data-range="all">All time</button></div>
+          <div class="repbar"><button class="chip on" data-rep="daywise">Day-wise sales</button><button class="chip" data-rep="bills">Bill-wise sales</button><button class="chip" data-rep="discount">Discount report</button><button class="chip" data-rep="items">Item-wise sales</button></div>
+          <div id="repStats" class="stats"></div>
+          <div class="tablewrap" id="repTable"></div>
+        </div>
       </section>
 
       <section id="page-kitchen" class="page hidden">
@@ -173,7 +189,8 @@ function setPage(page){
   document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
   $("page-"+page)?.classList.remove("hidden");
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
-  $("topTitle").textContent=({dashboard:"Dashboard",menu:"Food menu",staff:"Staff accounts",tables:"Tables & QR codes",orders:"Orders",kitchen:"Kitchen display"})[page]||page;
+  $("topTitle").textContent=({dashboard:"Dashboard",menu:"Food menu",staff:"Staff accounts",tables:"Tables & QR codes",orders:"Orders",kitchen:"Kitchen display",reports:"Reports"})[page]||page;
+  if(page==="reports")renderReport();
 }
 function applyRole(){
   document.querySelectorAll(".admin-only").forEach(el=>el.classList.toggle("hidden",profile?.role!=="admin"));
@@ -184,7 +201,7 @@ function listenData(){
   clearListeners();
   let firstOrders=true;
   unsubscribers.push(onSnapshot(collection(db,"menu"),snap=>{menu=snap.docs.map(d=>({id:d.id,...d.data()}));renderMenu();renderStats();}));
-  unsubscribers.push(onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc")),snap=>{if(!firstOrders&&profile.role!=="chef"){snap.docChanges().forEach(c=>{if(c.type==="added"&&c.doc.data().status==="Pending"){toast("New order from Table "+(c.doc.data().tableNumber||"-"));beep()}})}firstOrders=false;orders=snap.docs.map(d=>({id:d.id,...d.data()}));renderOrders();renderKitchen();renderStats();}));
+  unsubscribers.push(onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc")),snap=>{if(!firstOrders&&profile.role!=="chef"){snap.docChanges().forEach(c=>{if(c.type==="added"&&c.doc.data().status==="Pending"){toast("New order from Table "+(c.doc.data().tableNumber||"-"));beep()}})}firstOrders=false;orders=snap.docs.map(d=>({id:d.id,...d.data()}));renderOrders();renderKitchen();renderStats();renderReport();}));
   if(profile.role==="admin"){
     unsubscribers.push(onSnapshot(collection(db,"users"),snap=>{staff=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.role==="waiter"||x.role==="chef");renderStaff();}));
     unsubscribers.push(onSnapshot(collection(db,"tables"),snap=>{tables=snap.docs.map(d=>({id:d.id,...d.data()}));}));
@@ -478,6 +495,90 @@ function fileToDataURL(file,maxW=600,q=.72){
     img.src=url;
   });
 }
+
+/* ---------- REPORTS (sales / discount / items) ---------- */
+let repView="daywise",repData={head:[],types:[],body:[],foot:[]};
+const ymd=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const sumBy=(rows,k)=>r2(rows.reduce((s,x)=>s+x.b[k],0));
+function setRange(kind){
+  if(kind==="all"){$("repFrom").value="";$("repTo").value="";renderReport();return}
+  const t=new Date(),f=new Date(),e=new Date();
+  if(kind==="yesterday"){f.setDate(t.getDate()-1);e.setDate(t.getDate()-1)}
+  else if(kind==="week"){f.setDate(t.getDate()-6)}
+  else if(kind==="month"){f.setDate(1)}
+  $("repFrom").value=ymd(f);$("repTo").value=ymd(e);renderReport();
+}
+function reportRows(){
+  const from=$("repFrom").value?new Date($("repFrom").value+"T00:00:00"):null;
+  const to=$("repTo").value?new Date($("repTo").value+"T23:59:59.999"):null;
+  const only=$("repStatus").value;
+  return orders.filter(o=>{
+    if(!o.createdAt?.toDate)return false;
+    if(only==="Served"?o.status!=="Served":["Pending","Rejected"].includes(o.status))return false;
+    const d=o.createdAt.toDate();return (!from||d>=from)&&(!to||d<=to);
+  }).map(o=>({o,d:o.createdAt.toDate(),b:calcBill(o.items||[],o.bill||{})})).sort((a,b)=>a.d-b.d);
+}
+function buildReport(rows){
+  const S=(a,k)=>sumBy(a,k),M=["subtotal","discount","sc","cgst","sgst","roundOff","grand"];
+  let head,types,body,foot;
+  if(repView==="daywise"){
+    head=["Date","Orders","Qty","Sub Total","Discount","S.C Charge","CGST","SGST","Round Off","Net Sales"];
+    types=["t","n","n","m","m","m","m","m","m","m"];
+    const g={};rows.forEach(x=>{(g[ymd(x.d)]=g[ymd(x.d)]||[]).push(x)});
+    body=Object.keys(g).sort().map(k=>{const a=g[k];return [new Date(k+"T00:00:00").toLocaleDateString("en-IN"),a.length,S(a,"qty"),...M.map(m=>S(a,m))]});
+    foot=["TOTAL",rows.length,S(rows,"qty"),...M.map(m=>S(rows,m))];
+  }else if(repView==="bills"){
+    head=["Date & Time","Bill No","Table","Customer","Status","Sub Total","Discount","S.C Charge","CGST","SGST","Round Off","Grand Total"];
+    types=["t","t","t","t","t","m","m","m","m","m","m","m"];
+    body=rows.map(x=>[x.d.toLocaleString("en-IN"),"#"+x.o.id.slice(-6).toUpperCase(),String(x.o.tableNumber||x.o.table||"-"),x.o.customerName||"-",x.o.status,...M.map(m=>x.b[m])]);
+    foot=["TOTAL","","","","",...M.map(m=>S(rows,m))];
+  }else if(repView==="discount"){
+    const dr=rows.filter(x=>x.b.discount>0);
+    head=["Date & Time","Bill No","Table","Customer","Discount Type","Sub Total","Discount","Grand Total"];
+    types=["t","t","t","t","t","m","m","m"];
+    body=dr.map(x=>[x.d.toLocaleString("en-IN"),"#"+x.o.id.slice(-6).toUpperCase(),String(x.o.tableNumber||x.o.table||"-"),x.o.customerName||"-",x.b.discountType==="percent"?x.b.discountValue+"%":"Flat Rs "+x.b.discountValue,x.b.subtotal,x.b.discount,x.b.grand]);
+    foot=["TOTAL","","","","",S(dr,"subtotal"),S(dr,"discount"),S(dr,"grand")];
+  }else{
+    head=["Item","Qty Sold","Sales Amount (before tax)"];types=["t","n","m"];
+    const g={};rows.forEach(x=>(x.o.items||[]).forEach(i=>{const a=g[i.name]=g[i.name]||{q:0,m:0};a.q+=Number(i.qty)||0;a.m+=(Number(i.price)||0)*(Number(i.qty)||0)}));
+    const list=Object.entries(g).sort((a,b)=>b[1].q-a[1].q);
+    body=list.map(([n,a])=>[n,a.q,r2(a.m)]);
+    foot=["TOTAL",list.reduce((s,[,a])=>s+a.q,0),r2(list.reduce((s,[,a])=>s+a.m,0))];
+  }
+  return {head,types,body,foot};
+}
+function reportTableHTML(t){
+  if(!t.body.length)return '<div class="empty">No orders found for this date range.</div>';
+  const cell=(v,ty)=>ty==="m"?fmt(v):ty==="n"?String(v):safe(v);
+  const al=ty=>ty==="t"?"":' style="text-align:right"';
+  return `<table style="min-width:${t.head.length>9?1000:650}px"><thead><tr>${t.head.map((h,i)=>`<th${al(t.types[i])}>${safe(h)}</th>`).join("")}</tr></thead><tbody>${t.body.map(r=>`<tr>${r.map((v,i)=>`<td${al(t.types[i])}>${cell(v,t.types[i])}</td>`).join("")}</tr>`).join("")}</tbody><tfoot><tr>${t.foot.map((v,i)=>`<td${al(t.types[i])}><b>${cell(v,t.types[i])}</b></td>`).join("")}</tr></tfoot></table>`;
+}
+function renderReport(){
+  if(!$("repTable"))return;
+  const rows=reportRows(),T=k=>sumBy(rows,k);
+  $("repStats").innerHTML=[["Orders",rows.length],["Total Qty",T("qty")],["Sub Total",fmt(T("subtotal"))],["Discount",fmt(T("discount"))],["S.C Charge",fmt(T("sc"))],["CGST + SGST",fmt(r2(T("cgst")+T("sgst")))],["Round Off",fmt(T("roundOff"))],["Net Sales",fmt(T("grand"))]].map(c=>`<div class="stat"><small>${c[0]}</small><strong>${c[1]}</strong></div>`).join("");
+  document.querySelectorAll("[data-rep]").forEach(b=>b.classList.toggle("on",b.dataset.rep===repView));
+  repData=buildReport(rows);
+  $("repTable").innerHTML=reportTableHTML(repData);
+}
+document.querySelectorAll("[data-range]").forEach(b=>b.onclick=()=>setRange(b.dataset.range));
+document.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>{repView=b.dataset.rep;renderReport()});
+["repFrom","repTo","repStatus"].forEach(id=>$(id).onchange=renderReport);
+$("repCsv").onclick=()=>{
+  if(!repData.body.length){toast("Nothing to export for this date range");return}
+  const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  const csv=[repData.head,...repData.body,repData.foot].map(r=>r.map(q).join(",")).join("\r\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));
+  a.download=repView+"-report-"+($("repFrom").value||"all")+"_to_"+($("repTo").value||"all")+".csv";
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+$("repPrint").onclick=()=>{
+  const w=window.open("","_blank","width=900,height=700");if(!w){toast("Allow pop-ups to print");return}
+  const title={daywise:"Day-wise Sales Report",bills:"Bill-wise Sales Report",discount:"Discount Report",items:"Item-wise Sales Report"}[repView];
+  w.document.write(`<html><head><title>${title}</title><style>body{font:12px Arial;margin:16px}h2,h3,p{margin:4px 0}table{border-collapse:collapse;width:100%;margin-top:12px;min-width:0!important}th,td{border:1px solid #bbb;padding:5px 7px;text-align:left}th{background:#f0f0f0}tfoot td{font-weight:bold}</style></head><body><h2>${RESTAURANT.name}</h2><h3>${title}</h3><p>Period: ${$("repFrom").value||"start"} to ${$("repTo").value||"today"} · Generated: ${new Date().toLocaleString("en-IN")}</p>${$("repTable").innerHTML}<script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+};
+setRange("today");
 
 /* ---------- CUSTOMER MENU (opened from table QR: ?table=N) ---------- */
 function initCustomer(){
