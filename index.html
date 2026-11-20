@@ -374,7 +374,7 @@ function renderStats(){
 /* ---------- BILLING (S.C + GST) & EMAIL ---------- */
 const SC_RATE=10;      /* Service charge % on subtotal */
 const GST_RATE=5;      /* Total GST % for food (CGST 2.5% + SGST 2.5%) */
-const RESTAURANT={name:"THE CHAP HOUSE",address:"Add Level 3, SLN Terminus<br>Jayabheri Enclave, Gachibowli<br>Hyderabad, Telangana 500032",gstin:""}; /* put your GSTIN here */
+const RESTAURANT={name:"THE CHAP HOUSE",address:"Add Level 3, SLN Terminus<br>Jayabheri Enclave, Gachibowli<br>Hyderabad, Telangana 500032",gstin:"36AAKCM1700C1ZO"};
 /* EmailJS (free) - create account at emailjs.com, then paste your keys here */
 const EMAILJS={publicKey:"SHez9pvE8bMex3AGW",serviceId:"service_8pjrezj",templateId:"template_x6282gk"};
 const emailReady=()=>!!window.emailjs&&!String(EMAILJS.publicKey).startsWith("PASTE")&&!String(EMAILJS.serviceId).startsWith("PASTE")&&!String(EMAILJS.templateId).startsWith("PASTE");
@@ -390,9 +390,9 @@ function calcBill(items,opt={}){
   discount=r2(Math.min(Math.max(discount||0,0),subtotal));
   const after=r2(subtotal-discount);
   const sc=scRemoved?0:r2(after*SC_RATE/100);
-  const taxable=r2(after+sc);
+  const taxable=after; /* GST is charged on the subtotal (after discount), not on subtotal + S.C */
   const cgst=r2(taxable*GST_RATE/200),sgst=r2(taxable*GST_RATE/200);
-  const raw=r2(taxable+cgst+sgst),grand=Math.round(raw);
+  const raw=r2(after+sc+cgst+sgst),grand=Math.round(raw);
   return {qty,subtotal,discountType,discountValue:Number(discountValue)||0,discount,sc,scRemoved,taxable,cgst,sgst,raw,roundOff:r2(grand-raw),grand};
 }
 function summaryHTML(b){
@@ -402,8 +402,8 @@ function summaryHTML(b){
   h+=r("Sub Total",fmt(b.subtotal),true);
   if(b.discount>0)h+=r("Discount"+(b.discountType==="percent"?" ("+b.discountValue+"%)":""),"- "+fmt(b.discount));
   if(b.sc>0)h+=r("S.C Charge @ "+SC_RATE+"%",fmt(b.sc));
-  h+=r("Total",fmt(b.taxable),true);
-  h+=r("GST on Food @ "+GST_RATE+"%",fmt(b.cgst+b.sgst),true);
+  if(b.discount>0)h+=r("Taxable Value",fmt(b.taxable),true);
+  h+=r("GST on Sub Total @ "+GST_RATE+"%",fmt(b.cgst+b.sgst),true);
   h+=r("CGST @ "+(GST_RATE/2)+"%",fmt(b.cgst),false,true);
   h+=r("SGST @ "+(GST_RATE/2)+"%",fmt(b.sgst),false,true);
   h+=r("Round Off",(b.roundOff<0?"- ":"+ ")+fmt(Math.abs(b.roundOff)));
