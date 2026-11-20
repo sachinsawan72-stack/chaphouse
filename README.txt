@@ -94,6 +94,7 @@ Until EmailJS is configured, "Email bill" shows an error. Printing still works.
 | Menu (add / edit / delete) | ✅ | view | view |
 | Staff accounts | ✅ | – | – |
 | Tables & QR | ✅ | – | – |
+| Reports | ✅ | – | – |
 | Accept / reject orders, print KOT | ✅ | ✅ | – |
 | Bill, print, email | ✅ | ✅ | – |
 | Kitchen (Preparing / Ready) | ✅ | ✅ | ✅ |
@@ -127,6 +128,20 @@ GRAND TOTAL
 - Discount can be a percentage or a flat amount.
 - The GSTIN is printed on every bill. Change it in the `RESTAURANT` constant in `index.html`.
 - To change the rates, edit `SC_RATE` and `GST_RATE` in `index.html`.
+
+## Reports (Admin only)
+Open **Reports** in the sidebar.
+
+1. Choose a date range (From / To) or use the quick buttons: Today, Yesterday, Last 7 days, This month, All time.
+2. Choose which orders to include: **All accepted orders** or **Served orders only**. Pending and rejected orders are never counted.
+3. Pick a report:
+   - **Day-wise sales** – one row per day with orders, qty, sub total, discount, S.C, CGST, SGST, round off and net sales.
+   - **Bill-wise sales** – every bill with its full breakup.
+   - **Discount report** – only the bills where a discount was given (percent or flat amount) and the total discount.
+   - **Item-wise sales** – quantity sold and sales amount for each menu item.
+4. Use **Download CSV** (opens in Excel / Google Sheets) or **Print**.
+
+The summary cards at the top (Orders, Qty, Sub Total, Discount, S.C, GST, Round Off, Net Sales) always match the selected date range.
 
 ## Troubleshooting
 
