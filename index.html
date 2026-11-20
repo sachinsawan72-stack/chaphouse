@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>THE CHAP HOUSE | Restaurant Management</title>
 <script>if(new URLSearchParams(location.search).get("table"))document.documentElement.classList.add("customer-mode")</script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -30,6 +31,10 @@
 .ctrack{margin:14px 16px 0;background:#fff;border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:14px;padding:14px}.ctrack .tk{display:flex;justify-content:space-between;align-items:center;gap:10px}.ctrack p{margin:8px 0 0;font-size:13px;color:#344052}
 .cbar{position:fixed;left:0;right:0;bottom:0;background:#17212d;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:6}
 .csheet{position:fixed;inset:0;background:#10192388;z-index:10;display:flex;align-items:flex-end;justify-content:center}.csheet-in{background:#fff;width:min(560px,100%);max-height:90vh;overflow:auto;border-radius:18px 18px 0 0;padding:20px}.crow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.ctotal{display:flex;justify-content:space-between;font-size:16px;margin:12px 0}
+
+/* ---------- BILL / IMAGE UPLOAD ---------- */
+.upl{display:flex;gap:12px;align-items:center}.upl img{width:64px;height:64px;border-radius:10px;object-fit:cover;background:#eee;flex:none}.upl input[type=file]{padding:8px}
+.billbox{border:1px dashed #c9ced6;border-radius:12px;padding:12px 14px;margin:12px 0;background:#fff}
 </style>
 </head>
 <body>
@@ -61,9 +66,10 @@
   <div id="cCartSheet" class="csheet hidden"><div class="csheet-in">
     <div class="modalhead"><h3>Your order</h3><button class="close" id="cCloseCart">✕</button></div>
     <div id="cCartList"></div>
+    <div class="field"><label>Email address * (your bill will be sent here)</label><input id="cEmail" type="email" placeholder="you@example.com" required></div>
     <div class="field"><label>Your name (optional)</label><input id="cName" placeholder="Your name"></div>
     <div class="field"><label>Notes for the kitchen (optional)</label><textarea id="cNote" rows="2" placeholder="Less spicy, no onion…"></textarea></div>
-    <div class="ctotal"><span>Total</span><b id="cCartTotal"></b></div>
+    <div id="cBillBox" class="billbox"></div>
     <button class="btn full" id="cPlace">Place order</button>
     <p class="muted" style="font-size:12px;text-align:center">A waiter will confirm your order before it goes to the kitchen.</p>
   </div></div>
@@ -251,17 +257,21 @@ function renderMenu(){
 $("menuSearch").oninput=renderMenu;$("menuCategory").onchange=renderMenu;$("menuAvailability").onchange=renderMenu;
 $("addFoodBtn").onclick=()=>foodModal();
 function foodModal(item=null){
+  let imgData=item?.image?.startsWith("data:")?item.image:"";const urlVal=imgData?"":(item?.image||""),curImg=item?.image||"";
   $("modalRoot").innerHTML=`<div class="modalback"><div class="modal"><div class="modalhead"><h3>${item?"Edit food item":"Add food item"}</h3><button class="close" id="closeModal">✕</button></div><form id="foodForm">
   <div class="formgrid">
   <div class="field"><label>Food name *</label><input name="name" required value="${safe(item?.name||"")}" placeholder="Paneer Butter Masala"></div>
   <div class="field"><label>Category *</label><input name="category" required value="${safe(item?.category||"")}" placeholder="Veg / Non-Veg / Drinks"></div>
   <div class="field"><label>Price (₹) *</label><input name="price" type="number" min="0" step="0.01" required value="${item?.price??""}"></div>
-  <div class="field"><label>Image URL</label><input name="image" type="url" value="${safe(item?.image||"")}" placeholder="https://..."></div>
+  <div class="field wide"><label>Food photo</label><div class="upl"><img id="imgPrev" src="${safe(curImg||"https://placehold.co/90x90?text=Photo")}"><div style="flex:1"><input type="file" id="imgFile" accept="image/*"><div class="muted" style="font-size:11px;margin-top:4px">Upload a photo (auto-resized), or paste an image URL below.</div></div></div></div>
+  <div class="field wide"><label>Image URL (optional)</label><input name="image" type="url" value="${safe(urlVal)}" placeholder="https://..."></div>
   <div class="field wide"><label>Description</label><textarea name="description" rows="2">${safe(item?.description||"")}</textarea></div>
   <div class="field wide"><label><input type="checkbox" name="available" ${item?.available!==false?"checked":""} style="width:auto"> Available for ordering</label></div>
   </div><button class="btn full" type="submit">${item?"Save changes":"Add food item"}</button></form></div></div>`;
   $("closeModal").onclick=()=>$("modalRoot").innerHTML="";
-  $("foodForm").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const data={name:f.get("name").trim(),category:f.get("category").trim(),price:Number(f.get("price")),image:f.get("image").trim(),description:f.get("description").trim(),available:f.get("available")==="on",updatedAt:serverTimestamp()};try{if(item)await updateDoc(doc(db,"menu",item.id),data);else await addDoc(collection(db,"menu"),{...data,createdAt:serverTimestamp()});$("modalRoot").innerHTML="";toast(item?"Food item updated":"Food item added")}catch(err){toast(err.message)}};
+  $("imgFile").onchange=async e=>{const file=e.target.files[0];if(!file)return;try{imgData=await fileToDataURL(file);$("imgPrev").src=imgData}catch(err){toast(err.message)}};
+  document.querySelector("#foodForm [name=image]").oninput=e=>{if(e.target.value.trim())imgData=""};
+  $("foodForm").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const data={name:f.get("name").trim(),category:f.get("category").trim(),price:Number(f.get("price")),image:imgData||f.get("image").trim(),description:f.get("description").trim(),available:f.get("available")==="on",updatedAt:serverTimestamp()};try{if(item)await updateDoc(doc(db,"menu",item.id),data);else await addDoc(collection(db,"menu"),{...data,createdAt:serverTimestamp()});$("modalRoot").innerHTML="";toast(item?"Food item updated":"Food item added")}catch(err){toast(err.message)}};
 }
 
 /* STAFF: create login via Firebase Auth (no Cloud Function needed) */
@@ -324,12 +334,13 @@ $("printQRBtn").onclick=()=>window.print();
 
 /* ORDERS / WAITER / KITCHEN */
 function orderCard(o,mode){
- const items=(o.items||[]).map(i=>`${safe(i.name)} × ${i.qty}`).join("<br>")+(o.customerName?`<br><i>Customer: ${safe(o.customerName)}</i>`:"")+(o.note?`<br><i>Note: ${safe(o.note)}</i>`:"");
+ const items=(o.items||[]).map(i=>`${safe(i.name)} × ${i.qty}`).join("<br>")+(o.customerName?`<br><i>Customer: ${safe(o.customerName)}</i>`:"")+(o.note?`<br><i>Note: ${safe(o.note)}</i>`:"")+(o.customerEmail?`<br><i>Email: ${safe(o.customerEmail)}</i>`:"");
  let buttons="";
  if(mode==="waiter"&&o.status==="Pending")buttons=`<button class="btn success small" data-accept="${o.id}">Accept & print KOT</button><button class="btn danger small" data-reject="${o.id}">Reject</button>`;
  if(mode==="chef"&&o.status==="Accepted")buttons=`<button class="btn small" data-status="Preparing" data-id="${o.id}">Start preparing</button>`;
  if(mode==="chef"&&o.status==="Preparing")buttons=`<button class="btn success small" data-status="Ready" data-id="${o.id}">Mark ready</button>`;
  if(mode==="waiter"&&o.status==="Ready")buttons=`<button class="btn success small" data-status="Served" data-id="${o.id}">Mark served</button>`;
+ if(mode==="waiter"&&!["Pending","Rejected"].includes(o.status))buttons+=`<button class="btn secondary small" data-bill="${o.id}">Bill</button>`;
  return `<div class="order-card"><div class="order-top"><div><b>Order #${safe(o.id.slice(-6))}</b><div class="muted" style="font-size:12px">Table ${o.tableNumber||o.table||"-"} · ${o.createdAt?.toDate?o.createdAt.toDate().toLocaleTimeString():""}</div></div><span class="pill ${o.status==="Pending"?"pending":o.status==="Preparing"?"prep":""}">${safe(o.status)}</span></div><div class="order-items">${items}</div><div class="order-top"><b>${money(o.total)}</b><div class="actions">${buttons}</div></div></div>`;
 }
 function renderOrders(){
@@ -338,7 +349,8 @@ function renderOrders(){
  $("ordersList").innerHTML=list.length?list.map(o=>orderCard(o,"waiter")).join(""):'<div class="empty">No orders found.</div>';
  $("ordersList").querySelectorAll("[data-accept]").forEach(b=>b.onclick=async()=>{const o=orders.find(x=>x.id===b.dataset.accept);if(!o||o.status!=="Pending")return;const w=window.open("","_blank","width=380,height=600");try{await updateDoc(doc(db,"orders",o.id),{status:"Accepted",acceptedAt:serverTimestamp(),acceptedBy:currentUser.uid});printKOT(o,w);toast("Order accepted. KOT sent to print.")}catch(err){if(w)w.close();toast(err.message)}});
  $("ordersList").querySelectorAll("[data-reject]").forEach(b=>b.onclick=async()=>{const o=orders.find(x=>x.id===b.dataset.reject);if(o?.status==="Pending")await updateDoc(doc(db,"orders",o.id),{status:"Rejected",rejectedAt:serverTimestamp()})});
- $("ordersList").querySelectorAll("[data-status]").forEach(b=>b.onclick=()=>updateDoc(doc(db,"orders",b.dataset.id),{status:b.dataset.status,updatedAt:serverTimestamp()}));
+ $("ordersList").querySelectorAll("[data-status]").forEach(b=>b.onclick=async()=>{const o=orders.find(x=>x.id===b.dataset.id);try{await updateDoc(doc(db,"orders",b.dataset.id),{status:b.dataset.status,updatedAt:serverTimestamp()});if(b.dataset.status==="Served"&&o)autoEmailBill(o)}catch(err){toast(err.message)}});
+ $("ordersList").querySelectorAll("[data-bill]").forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.id===b.dataset.bill);if(o)billModal(o)});
 }
 $("orderFilter").onchange=renderOrders;
 function renderKitchen(){
@@ -359,12 +371,121 @@ function renderStats(){
  const recent=orders.slice(0,5);
  $("recentOrders").innerHTML=recent.length?recent.map(o=>`<div class="order-top" style="padding:12px 0;border-bottom:1px solid var(--line)"><div><b>Table ${safe(o.tableNumber||o.table||"-")}</b><div class="muted" style="font-size:12px">Order #${safe(o.id.slice(-6))}</div></div><div style="text-align:right"><b>${money(o.total)}</b><div class="muted">${safe(o.status)}</div></div></div>`).join(""):'No orders yet.';
 }
+/* ---------- BILLING (S.C + GST) & EMAIL ---------- */
+const SC_RATE=10;      /* Service charge % on subtotal */
+const GST_RATE=5;      /* Total GST % for food (CGST 2.5% + SGST 2.5%) */
+const RESTAURANT={name:"THE CHAP HOUSE",address:"Add Level 3, SLN Terminus<br>Jayabheri Enclave, Gachibowli<br>Hyderabad, Telangana 500032",gstin:""}; /* put your GSTIN here */
+/* EmailJS (free) - create account at emailjs.com, then paste your keys here */
+const EMAILJS={publicKey:"PASTE_PUBLIC_KEY",serviceId:"PASTE_SERVICE_ID",templateId:"PASTE_TEMPLATE_ID"};
+const emailReady=()=>!!window.emailjs&&!String(EMAILJS.publicKey).startsWith("PASTE")&&!String(EMAILJS.serviceId).startsWith("PASTE")&&!String(EMAILJS.templateId).startsWith("PASTE");
+if(emailReady())window.emailjs.init({publicKey:EMAILJS.publicKey});
+const r2=n=>Math.round((Number(n)+Number.EPSILON)*100)/100;
+const fmt=n=>"₹"+Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2});
+const emailOk=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+function calcBill(items,opt={}){
+  const {scRemoved=false,discountType="none",discountValue=0}=opt;
+  const qty=items.reduce((s,i)=>s+Number(i.qty||0),0);
+  const subtotal=r2(items.reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||0),0));
+  let discount=discountType==="percent"?subtotal*Number(discountValue)/100:discountType==="amount"?Number(discountValue):0;
+  discount=r2(Math.min(Math.max(discount||0,0),subtotal));
+  const after=r2(subtotal-discount);
+  const sc=scRemoved?0:r2(after*SC_RATE/100);
+  const taxable=r2(after+sc);
+  const cgst=r2(taxable*GST_RATE/200),sgst=r2(taxable*GST_RATE/200);
+  const raw=r2(taxable+cgst+sgst),grand=Math.round(raw);
+  return {qty,subtotal,discountType,discountValue:Number(discountValue)||0,discount,sc,scRemoved,taxable,cgst,sgst,raw,roundOff:r2(grand-raw),grand};
+}
+function summaryHTML(b){
+  const r=(l,v,bold,ind)=>`<tr><td style="padding:3px 0;font-size:13px;${bold?"font-weight:700;":""}${ind?"padding-left:16px;color:#444;":""}">${l}</td><td style="padding:3px 0;font-size:13px;text-align:right;${bold?"font-weight:700;":""}">${v}</td></tr>`;
+  let h='<table style="width:100%;border-collapse:collapse">';
+  h+=r("Total Qty",b.qty);
+  h+=r("Sub Total",fmt(b.subtotal),true);
+  if(b.discount>0)h+=r("Discount"+(b.discountType==="percent"?" ("+b.discountValue+"%)":""),"- "+fmt(b.discount));
+  if(b.sc>0)h+=r("S.C Charge @ "+SC_RATE+"%",fmt(b.sc));
+  h+=r("Total",fmt(b.taxable),true);
+  h+=r("GST on Food @ "+GST_RATE+"%",fmt(b.cgst+b.sgst),true);
+  h+=r("CGST @ "+(GST_RATE/2)+"%",fmt(b.cgst),false,true);
+  h+=r("SGST @ "+(GST_RATE/2)+"%",fmt(b.sgst),false,true);
+  h+=r("Round Off",(b.roundOff<0?"- ":"+ ")+fmt(Math.abs(b.roundOff)));
+  h+='<tr><td style="padding:8px 0 0;font-size:16px;font-weight:800;border-top:1px solid #111">GRAND TOTAL</td><td style="padding:8px 0 0;font-size:16px;font-weight:800;text-align:right;border-top:1px solid #111">'+fmt(b.grand)+'</td></tr></table>';
+  return h;
+}
+function billHTML(o,b){
+  const d=o.createdAt?.toDate?o.createdAt.toDate():new Date();
+  const td="padding:4px 0;font-size:13px;";
+  const rows=(o.items||[]).map(i=>`<tr><td style="${td}">${safe(i.name)}</td><td style="${td}text-align:center">${i.qty}</td><td style="${td}text-align:right">${fmt(i.price)}</td><td style="${td}text-align:right">${fmt(Number(i.price)*Number(i.qty))}</td></tr>`).join("");
+  const hr='<hr style="border:0;border-top:1px dashed #999;margin:10px 0">';
+  return `<div style="font-family:Arial,sans-serif;max-width:380px;margin:auto;color:#111;border:1px solid #ddd;padding:16px;background:#fff">
+  <div style="text-align:center"><div style="font-size:20px;font-weight:800">${RESTAURANT.name}</div><div style="font-size:12px;color:#555;line-height:1.5">${RESTAURANT.address}${RESTAURANT.gstin?"<br>GSTIN: "+safe(RESTAURANT.gstin):""}</div></div>${hr}
+  <div style="font-size:12px;line-height:1.7">Bill No: <b>#${safe(o.id.slice(-6).toUpperCase())}</b><br>Date: ${d.toLocaleString("en-IN")}<br>Table: <b>${safe(o.tableNumber||o.table||"-")}</b>${o.customerName?"<br>Customer: "+safe(o.customerName):""}</div>${hr}
+  <table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid #999"><th align="left" style="font-size:12px;padding:4px 0">Item</th><th style="font-size:12px;padding:4px 0">Qty</th><th align="right" style="font-size:12px;padding:4px 0">Rate</th><th align="right" style="font-size:12px;padding:4px 0">Amount</th></tr></thead><tbody>${rows}</tbody></table>${hr}
+  ${summaryHTML(b)}${hr}<div style="text-align:center;font-size:12px">Thank you! Visit again.</div></div>`;
+}
+async function sendBillEmail(o,b,email){
+  if(!emailReady())throw new Error("Email is not set up yet. Add your EmailJS keys in the code (EMAILJS settings).");
+  await window.emailjs.send(EMAILJS.serviceId,EMAILJS.templateId,{to_email:email,to_name:o.customerName||"Guest",bill_no:o.id.slice(-6).toUpperCase(),subject:"Your bill from "+RESTAURANT.name+" (Table "+(o.tableNumber||o.table||"-")+")",message_html:billHTML(o,b)});
+}
+async function autoEmailBill(o){
+  if(!o.customerEmail||o.billEmailedAt)return;
+  if(!emailReady()){toast("Order served. Bill email not sent: EmailJS is not set up.");return}
+  try{
+    await sendBillEmail(o,calcBill(o.items||[],o.bill||{}),o.customerEmail);
+    await updateDoc(doc(db,"orders",o.id),{billEmailedAt:serverTimestamp()});
+    toast("Bill emailed to "+o.customerEmail);
+  }catch(err){toast("Bill email failed: "+(err.message||err.text||"unknown error"))}
+}
+function billModal(o){
+  const st={scRemoved:!!o.bill?.scRemoved,discountType:o.bill?.discountType||"none",discountValue:o.bill?.discountValue||0};
+  $("modalRoot").innerHTML=`<div class="modalback"><div class="modal"><div class="modalhead"><h3>Bill · Order #${safe(o.id.slice(-6))}</h3><button class="close" id="closeModal">✕</button></div>
+  <div class="formgrid" style="margin-top:10px">
+   <div class="field wide"><label><input type="checkbox" id="bSC" ${st.scRemoved?"checked":""} style="width:auto"> Remove S.C charge (${SC_RATE}%)</label></div>
+   <div class="field"><label>Discount</label><select id="bDT"><option value="none">No discount</option><option value="percent">Percent (%)</option><option value="amount">Flat amount (₹)</option></select></div>
+   <div class="field"><label>Discount value</label><input id="bDV" type="number" min="0" step="0.01" value="${st.discountValue}"></div>
+   <div class="field wide"><label>Customer email</label><input id="bEmail" type="email" value="${safe(o.customerEmail||"")}" placeholder="customer@example.com"></div>
+  </div>
+  <div id="bPreview" style="margin:8px 0"></div>
+  <div class="actions"><button class="btn secondary" id="bSave">Save</button><button class="btn secondary" id="bPrint">Print bill</button><button class="btn" id="bEmailBtn">Email bill</button></div></div></div>`;
+  $("bDT").value=st.discountType;
+  $("closeModal").onclick=()=>$("modalRoot").innerHTML="";
+  const read=()=>({scRemoved:$("bSC").checked,discountType:$("bDT").value,discountValue:Number($("bDV").value)||0});
+  const preview=()=>{$("bPreview").innerHTML=billHTML(o,calcBill(o.items||[],read()))};
+  ["bSC","bDT","bDV"].forEach(id=>{$(id).oninput=preview;$(id).onchange=preview});
+  preview();
+  const save=async()=>{
+    const opt=read(),b=calcBill(o.items||[],opt),email=$("bEmail").value.trim();
+    await updateDoc(doc(db,"orders",o.id),{bill:opt,total:b.grand,subtotal:b.subtotal,customerEmail:email,updatedAt:serverTimestamp()});
+    o.bill=opt;o.total=b.grand;o.customerEmail=email;return b;
+  };
+  $("bSave").onclick=async()=>{try{await save();toast("Bill saved")}catch(err){toast(err.message)}};
+  $("bPrint").onclick=async()=>{
+    const w=window.open("","_blank","width=420,height=700");if(!w){toast("Allow pop-ups to print the bill");return}
+    try{const b=await save();w.document.write(`<html><head><title>Bill</title></head><body style="margin:12px">${billHTML(o,b)}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close()}
+    catch(err){w.close();toast(err.message)}
+  };
+  $("bEmailBtn").onclick=async()=>{
+    const email=$("bEmail").value.trim();if(!emailOk(email)){toast("Enter a valid customer email");return}
+    const btn=$("bEmailBtn");btn.disabled=true;btn.textContent="Sending…";
+    try{const b=await save();await sendBillEmail(o,b,email);await updateDoc(doc(db,"orders",o.id),{billEmailedAt:serverTimestamp()});toast("Bill emailed to "+email)}
+    catch(err){toast(err.message||err.text||"Could not send the email")}
+    finally{btn.disabled=false;btn.textContent="Email bill"}
+  };
+}
+function fileToDataURL(file,maxW=600,q=.72){
+  return new Promise((res,rej)=>{
+    const img=new Image(),url=URL.createObjectURL(file);
+    img.onload=()=>{const sc=Math.min(1,maxW/img.width),c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);let out=c.toDataURL("image/jpeg",q);if(out.length>700000)out=c.toDataURL("image/jpeg",.5);res(out)};
+    img.onerror=()=>rej(new Error("This file is not a valid image."));
+    img.src=url;
+  });
+}
+
 /* ---------- CUSTOMER MENU (opened from table QR: ?table=N) ---------- */
 function initCustomer(){
   const tableNo=parseInt(tableParam,10)||tableParam;
   const LS="chap_last_order_"+tableNo;
   let cmenu=[],cart={},activeCat="All",unsub=null;
   $("cTable").textContent="Table "+tableNo;
+  try{$("cEmail").value=localStorage.getItem("chap_email")||""}catch(_){}
   const total=()=>Object.values(cart).reduce((s,x)=>s+x.price*x.qty,0);
   const count=()=>Object.values(cart).reduce((s,x)=>s+x.qty,0);
   onSnapshot(collection(db,"menu"),snap=>{
@@ -385,12 +506,12 @@ function initCustomer(){
     const n=count();
     $("cBar").classList.toggle("hidden",n===0);
     $("cBarCount").textContent=n+(n===1?" item":" items");
-    $("cBarTotal").textContent=money(total());
+    $("cBarTotal").textContent="Subtotal "+money(total())+" + taxes";
   }
   function renderCart(){
     if(!count()){$("cCartSheet").classList.add("hidden");return}
     $("cCartList").innerHTML=Object.values(cart).map(x=>`<div class="crow"><div><b>${safe(x.name)}</b><div class="muted" style="font-size:12px">${money(x.price)} each</div></div><div class="cqty"><button data-sub="${x.id}">−</button><span>${x.qty}</span><button data-add="${x.id}">+</button></div><b>${money(x.price*x.qty)}</b></div>`).join("");
-    $("cCartTotal").textContent=money(total());
+    $("cBillBox").innerHTML=summaryHTML(calcBill(Object.values(cart)));
   }
   function refresh(){renderCMenu();if(!$("cCartSheet").classList.contains("hidden"))renderCart()}
   $("customerView").addEventListener("click",e=>{
@@ -403,11 +524,12 @@ function initCustomer(){
   $("cCloseCart").onclick=()=>$("cCartSheet").classList.add("hidden");
   $("cPlace").onclick=async()=>{
     if(!count())return;
+    const email=$("cEmail").value.trim();if(!emailOk(email)){alert("Please enter a valid email address to receive your bill.");$("cEmail").focus();return}
     const btn=$("cPlace");btn.disabled=true;btn.textContent="Placing order…";
     try{
       const items=Object.values(cart).map(x=>({id:x.id,name:x.name,price:x.price,qty:x.qty}));
-      const ref=await addDoc(collection(db,"orders"),{tableNumber:tableNo,table:tableNo,items,total:total(),status:"Pending",customerName:$("cName").value.trim(),note:$("cNote").value.trim(),createdAt:serverTimestamp()});
-      try{localStorage.setItem(LS,ref.id)}catch(_){}
+      const ref=await addDoc(collection(db,"orders"),{tableNumber:tableNo,table:tableNo,items,total:calcBill(items).grand,subtotal:calcBill(items).subtotal,bill:{scRemoved:false,discountType:"none",discountValue:0},status:"Pending",customerEmail:email,customerName:$("cName").value.trim(),note:$("cNote").value.trim(),createdAt:serverTimestamp()});
+      try{localStorage.setItem(LS,ref.id);localStorage.setItem("chap_email",email)}catch(_){}
       cart={};$("cNote").value="";$("cCartSheet").classList.add("hidden");refresh();track(ref.id);
       window.scrollTo({top:0,behavior:"smooth"});
     }catch(err){alert("Could not place the order: "+err.message)}
@@ -418,7 +540,7 @@ function initCustomer(){
     unsub=onSnapshot(doc(db,"orders",id),snap=>{
       if(!snap.exists()){$("cTrack").classList.add("hidden");return}
       const o=snap.data(),st=o.status;
-      const msg={Pending:"Waiting for the waiter to confirm your order…",Accepted:"Order confirmed and sent to the kitchen.",Preparing:"Your food is being prepared.",Ready:"Your order is ready and will be at your table shortly.",Served:"Served. Enjoy your meal!",Rejected:"Sorry, your order could not be accepted. Please call a waiter."}[st]||st;
+      const msg={Pending:"Waiting for the waiter to confirm your order…",Accepted:"Order confirmed and sent to the kitchen.",Preparing:"Your food is being prepared.",Ready:"Your order is ready and will be at your table shortly.",Served:"Served. Enjoy your meal!"+(o.billEmailedAt&&o.customerEmail?" Your bill has been emailed to "+o.customerEmail+".":""),Rejected:"Sorry, your order could not be accepted. Please call a waiter."}[st]||st;
       const cls=st==="Pending"?"pending":st==="Preparing"?"prep":st==="Rejected"?"off":"";
       $("cTrack").classList.remove("hidden");
       $("cTrack").innerHTML=`<div class="tk"><b>Your order #${safe(id.slice(-6))}</b><span class="pill ${cls}">${safe(st)}</span></div><p>${safe(msg)}</p><p class="muted">${(o.items||[]).map(i=>safe(i.name)+" × "+i.qty).join(", ")} · <b>${money(o.total)}</b></p>`;
