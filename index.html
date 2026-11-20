@@ -423,7 +423,7 @@ function billHTML(o,b){
 }
 async function sendBillEmail(o,b,email){
   if(!emailReady()){const miss=[];if(!window.emailjs)miss.push("EmailJS script did not load (check internet)");if(String(EMAILJS.publicKey).startsWith("PASTE"))miss.push("Public Key");if(String(EMAILJS.serviceId).startsWith("PASTE"))miss.push("Service ID");if(String(EMAILJS.templateId).startsWith("PASTE"))miss.push("Template ID");throw new Error("Email is not set up. Missing: "+miss.join(", ")+".");}
-  await window.emailjs.send(EMAILJS.serviceId,EMAILJS.templateId,{to_email:email,to_name:o.customerName||"Guest",bill_no:o.id.slice(-6).toUpperCase(),subject:"Your bill from "+RESTAURANT.name+" (Table "+(o.tableNumber||o.table||"-")+")",message_html:billHTML(o,b)});
+  await window.emailjs.send(EMAILJS.serviceId,EMAILJS.templateId,{to_email:email,email:email,reply_to:email,to_name:o.customerName||"Guest",name:o.customerName||"Guest",message:"Your bill total is "+fmt(b.grand),bill_no:o.id.slice(-6).toUpperCase(),subject:"Your bill from "+RESTAURANT.name+" (Table "+(o.tableNumber||o.table||"-")+")",message_html:billHTML(o,b)});
 }
 async function autoEmailBill(o){
   if(!o.customerEmail||o.billEmailedAt)return;
