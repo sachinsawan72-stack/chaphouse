@@ -118,7 +118,7 @@
       <section id="page-staff" class="page hidden admin-only">
         <div class="pagehead"><div><h1>Staff accounts</h1><p>Create and manage secure waiter and chef logins.</p></div><button class="btn" id="addStaffBtn">＋ Create staff account</button></div>
         <div class="notice">Staff accounts are created through Firebase Authentication. Passwords are handled by Firebase and are never stored or displayed here.</div>
-        <div class="panel"><div class="toolbar"><input id="staffSearch" placeholder="Search staff…"><select id="staffRoleFilter"><option value="">All roles</option><option value="waiter">Waiters</option><option value="chef">Chefs</option></select></div>
+        <div class="panel"><div class="toolbar"><input id="staffSearch" placeholder="Search staff…"><select id="staffRoleFilter"><option value="">All roles</option><option value="manager">Managers</option><option value="captain">Captains</option><option value="waiter">Waiters</option><option value="cashier">Cashiers</option><option value="chef">Chefs</option></select></div>
         <div class="tablewrap"><table><thead><tr><th>Name</th><th>Email / Login ID</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody id="staffRows"></tbody></table></div></div>
       </section>
 
@@ -129,8 +129,21 @@
       </section>
 
       <section id="page-orders" class="page hidden">
-        <div class="pagehead"><div><h1>Order management</h1><p>Waiter approval is required before an order can enter the kitchen.</p></div></div>
-        <div class="panel"><div class="toolbar"><select id="orderFilter"><option value="">All orders</option><option>Pending</option><option>Accepted</option><option>Preparing</option><option>Ready</option><option>Rejected</option><option>Served</option></select></div><div id="ordersList"></div></div>
+        <div class="pagehead"><div><h1>Order management</h1><p>Date-wise orders, staff tracking and reports.</p></div><button class="btn" id="newOrderBtn">＋ New order</button></div>
+        <div class="panel">
+          <div class="repbar" id="ordViews"></div>
+          <div class="toolbar">
+            <select id="orderFilter"><option value="">All status</option><option>Pending</option><option>Accepted</option><option>Preparing</option><option>Ready</option><option>Rejected</option><option>Served</option></select>
+            <input id="ordTable" placeholder="Table no." style="max-width:110px">
+            <label class="muted">From</label><input type="date" id="ordFrom" style="max-width:160px">
+            <label class="muted">To</label><input type="date" id="ordTo" style="max-width:160px">
+            <button class="btn secondary small" id="ordToday">Today</button>
+            <button class="btn secondary small" id="ordAll">All dates</button>
+            <button class="btn secondary small" id="ordCsv">Download CSV</button>
+          </div>
+          <div id="ordSummary" class="tablewrap" style="margin-bottom:14px"></div>
+          <div id="ordersList"></div>
+        </div>
       </section>
 
       <section id="page-reports" class="page hidden admin-only">
@@ -174,6 +187,11 @@ const firebaseConfig = {
 let app, auth, db, functions, currentUser=null, profile=null;
 let menu=[], staff=[], orders=[], tables=[];
 let unsubscribers=[];
+const STAFF_ROLES=["manager","captain","waiter","cashier","chef"];
+const isMgr=()=>profile?.role==="admin"||profile?.role==="manager";
+const isFloor=()=>["captain","waiter"].includes(profile?.role);
+const myOrder=o=>{const u=currentUser?.uid;return o.captainId===u||o.waiterId===u||o.takenById===u||o.acceptedBy===u};
+const scopedOrders=()=>isFloor()?orders.filter(o=>myOrder(o)||(o.status==="Pending"&&!o.captainId&&!o.waiterId)):orders;
 const $ = id => document.getElementById(id);
 const tableParam=new URLSearchParams(location.search).get("table");
 const isCustomer=!!tableParam;
@@ -193,19 +211,17 @@ function setPage(page){
   if(page==="reports")renderReport();
 }
 function applyRole(){
-  document.querySelectorAll(".admin-only").forEach(el=>el.classList.toggle("hidden",profile?.role!=="admin"));
-  if(profile?.role==="waiter"){document.querySelector('[data-page="staff"]').classList.add("hidden");document.querySelector('[data-page="tables"]').classList.add("hidden");}
-  if(profile?.role==="chef"){document.querySelector('[data-page="orders"]').classList.add("hidden");}
+  document.querySelectorAll(".admin-only").forEach(el=>el.classList.toggle("hidden",!isMgr()));
+  if(profile?.role==="chef")document.querySelector('[data-page="orders"]').classList.add("hidden");
 }
 function listenData(){
   clearListeners();
   let firstOrders=true;
+  unsubscribers.push(onSnapshot(doc(db,"users",currentUser.uid),s=>{if(!s.exists()||s.data().active===false){toast("Your account has been removed or disabled.");signOut(auth)}}));
   unsubscribers.push(onSnapshot(collection(db,"menu"),snap=>{menu=snap.docs.map(d=>({id:d.id,...d.data()}));renderMenu();renderStats();}));
   unsubscribers.push(onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc")),snap=>{if(!firstOrders&&profile.role!=="chef"){snap.docChanges().forEach(c=>{if(c.type==="added"&&c.doc.data().status==="Pending"){toast("New order from Table "+(c.doc.data().tableNumber||"-"));beep()}})}firstOrders=false;orders=snap.docs.map(d=>({id:d.id,...d.data()}));renderOrders();renderKitchen();renderStats();renderReport();}));
-  if(profile.role==="admin"){
-    unsubscribers.push(onSnapshot(collection(db,"users"),snap=>{staff=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.role==="waiter"||x.role==="chef");renderStaff();}));
-    unsubscribers.push(onSnapshot(collection(db,"tables"),snap=>{tables=snap.docs.map(d=>({id:d.id,...d.data()}));}));
-  }
+  if(profile.role!=="chef")unsubscribers.push(onSnapshot(collection(db,"users"),snap=>{staff=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>STAFF_ROLES.includes(x.role));renderStaff();}));
+  if(isMgr())unsubscribers.push(onSnapshot(collection(db,"tables"),snap=>{tables=snap.docs.map(d=>({id:d.id,...d.data()}));}));
 }
 async function loadProfile(user){
   const {getDoc}=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
@@ -216,7 +232,7 @@ async function loadProfile(user){
   $("userName").textContent=profile.name||user.email;
   $("userRole").textContent=(profile.role||"staff").toUpperCase();
   $("avatar").textContent=(profile.name||user.email||"U").charAt(0).toUpperCase();
-  showApp();applyRole();listenData();setPage("dashboard");
+  showApp();applyRole();listenData();initOrdViews();setPage("dashboard");
 }
 if(configReady()){
   app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);functions=getFunctions(app);
@@ -298,7 +314,7 @@ function staffModal(){
  <div class="field"><label>Full name *</label><input name="name" required placeholder="Staff name"></div>
  <div class="field"><label>Email / Login ID *</label><input name="email" type="email" required placeholder="waiter1@yourrestaurant.com"></div>
  <div class="field"><label>Temporary password *</label><input name="password" type="password" minlength="8" required placeholder="At least 8 characters"></div>
- <div class="field"><label>Staff role *</label><select name="role"><option value="waiter">Waiter</option><option value="chef">Chef</option></select></div>
+ <div class="field"><label>Staff role *</label><select name="role"><option value="manager">Manager</option><option value="captain">Captain</option><option value="waiter">Waiter</option><option value="cashier">Cashier</option><option value="chef">Chef</option></select></div>
  <button class="btn full">Create account</button></form></div></div>`;
  $("closeModal").onclick=()=>$("modalRoot").innerHTML="";
  $("staffForm").onsubmit=async e=>{
@@ -335,8 +351,15 @@ function staffModal(){
 function renderStaff(){
  const q=($("staffSearch")?.value||"").toLowerCase(),r=$("staffRoleFilter")?.value||"";
  const list=staff.filter(s=>((s.name||"").toLowerCase().includes(q)||(s.email||"").toLowerCase().includes(q))&&(!r||s.role===r));
- $("staffRows").innerHTML=list.length?list.map(s=>`<tr><td><strong>${safe(s.name)}</strong></td><td>${safe(s.email)}</td><td><span class="pill prep">${safe(s.role)}</span></td><td><span class="pill ${s.active===false?"off":""}">${s.active===false?"Disabled":"Active"}</span></td><td><button class="btn ${s.active===false?"success":"danger"} small" data-staff="${s.id}">${s.active===false?"Enable":"Disable"}</button></td></tr>`).join(""):'<tr><td colspan="5" class="empty">No staff accounts found.</td></tr>';
+ $("staffRows").innerHTML=list.length?list.map(s=>`<tr><td><strong>${safe(s.name)}</strong></td><td>${safe(s.email)}</td><td><span class="pill prep">${safe(s.role)}</span></td><td><span class="pill ${s.active===false?"off":""}">${s.active===false?"Disabled":"Active"}</span></td><td><button class="btn ${s.active===false?"success":"danger"} small" data-staff="${s.id}">${s.active===false?"Enable":"Disable"}</button>${profile?.role==="admin"?`<button class="btn danger small" data-delstaff="${s.id}" style="margin-left:6px">Delete</button>`:""}</td></tr>`).join(""):'<tr><td colspan="5" class="empty">No staff accounts found.</td></tr>';
  $("staffRows").querySelectorAll("[data-staff]").forEach(b=>b.onclick=async()=>{const s=staff.find(x=>x.id===b.dataset.staff);await updateDoc(doc(db,"users",s.id),{active:s.active===false});toast("Staff status updated")});
+ $("staffRows").querySelectorAll("[data-delstaff]").forEach(b=>b.onclick=async()=>{
+  const s=staff.find(x=>x.id===b.dataset.delstaff);
+  if(!s||profile.role!=="admin")return;
+  if(s.id===currentUser.uid){toast("You cannot delete your own account");return}
+  if(!confirm("Delete staff account of "+(s.name||s.email)+"? They will no longer be able to log in. This cannot be undone."))return;
+  try{await deleteDoc(doc(db,"users",s.id));toast("Staff account deleted: "+(s.name||s.email))}catch(err){toast(err.message)}
+ });
 }
 $("staffSearch").oninput=renderStaff;$("staffRoleFilter").onchange=renderStaff;
 
@@ -351,25 +374,90 @@ $("printQRBtn").onclick=()=>window.print();
 
 /* ORDERS / WAITER / KITCHEN */
 function orderCard(o,mode){
- const items=(o.items||[]).map(i=>`${safe(i.name)} × ${i.qty}`).join("<br>")+(o.customerName?`<br><i>Customer: ${safe(o.customerName)}</i>`:"")+(o.note?`<br><i>Note: ${safe(o.note)}</i>`:"")+(o.customerEmail?`<br><i>Email: ${safe(o.customerEmail)}</i>`:"");
+ const items=(o.items||[]).map(i=>`${safe(i.name)} × ${i.qty}`).join("<br>")+(o.customerName?`<br><i>Customer: ${safe(o.customerName)}</i>`:"")+(o.note?`<br><i>Note: ${safe(o.note)}</i>`:"")+(o.customerEmail?`<br><i>Email: ${safe(o.customerEmail)}</i>`:"")+`<br><i>Captain: ${safe(o.captainName||"-")} · Waiter: ${safe(o.waiterName||"-")}</i><br><i>Taken by: ${safe(o.takenByName||o.acceptedByName||"-")} (${safe(o.takenByRole||o.acceptedByRole||"-")})</i>`;
  let buttons="";
  if(mode==="waiter"&&o.status==="Pending")buttons=`<button class="btn success small" data-accept="${o.id}">Accept & print KOT</button><button class="btn danger small" data-reject="${o.id}">Reject</button>`;
  if(mode==="chef"&&o.status==="Accepted")buttons=`<button class="btn small" data-status="Preparing" data-id="${o.id}">Start preparing</button>`;
  if(mode==="chef"&&o.status==="Preparing")buttons=`<button class="btn success small" data-status="Ready" data-id="${o.id}">Mark ready</button>`;
  if(mode==="waiter"&&o.status==="Ready")buttons=`<button class="btn success small" data-status="Served" data-id="${o.id}">Mark served</button>`;
  if(mode==="waiter"&&!["Pending","Rejected"].includes(o.status))buttons+=`<button class="btn secondary small" data-bill="${o.id}">Bill</button>`;
- return `<div class="order-card"><div class="order-top"><div><b>Order #${safe(o.id.slice(-6))}</b><div class="muted" style="font-size:12px">Table ${o.tableNumber||o.table||"-"} · ${o.createdAt?.toDate?o.createdAt.toDate().toLocaleTimeString():""}</div></div><span class="pill ${o.status==="Pending"?"pending":o.status==="Preparing"?"prep":""}">${safe(o.status)}</span></div><div class="order-items">${items}</div><div class="order-top"><b>${money(o.total)}</b><div class="actions">${buttons}</div></div></div>`;
+ return `<div class="order-card"><div class="order-top"><div><b>Order #${safe(o.id.slice(-6))}</b><div class="muted" style="font-size:12px">Table ${o.tableNumber||o.table||"-"} · ${o.createdAt?.toDate?o.createdAt.toDate().toLocaleString("en-IN"):""}</div></div><span class="pill ${o.status==="Pending"?"pending":o.status==="Preparing"?"prep":""}">${safe(o.status)}</span></div><div class="order-items">${items}</div><div class="order-top"><b>${money(o.total)}</b><div class="actions">${buttons}</div></div></div>`;
 }
 function renderOrders(){
- const filter=$("orderFilter")?.value||"";
- const list=orders.filter(o=>!filter||o.status===filter);
+ const list=filteredOrders();
+ const g={};list.forEach(o=>{const k=o.createdAt?.toDate?ymd(o.createdAt.toDate()):"-";const a=g[k]=g[k]||{n:0,t:0};a.n++;if(!["Pending","Rejected"].includes(o.status))a.t+=Number(o.total||0)});
+ $("ordSummary").innerHTML=Object.keys(g).length?`<table style="min-width:0"><thead><tr><th>Date</th><th>Total orders</th><th style="text-align:right">Amount</th></tr></thead><tbody>${Object.keys(g).sort().reverse().map(k=>`<tr><td>${k}</td><td>${g[k].n}</td><td style="text-align:right">${money(g[k].t)}</td></tr>`).join("")}</tbody></table>`:"";
  $("ordersList").innerHTML=list.length?list.map(o=>orderCard(o,"waiter")).join(""):'<div class="empty">No orders found.</div>';
- $("ordersList").querySelectorAll("[data-accept]").forEach(b=>b.onclick=async()=>{const o=orders.find(x=>x.id===b.dataset.accept);if(!o||o.status!=="Pending")return;const w=window.open("","_blank","width=380,height=600");try{await updateDoc(doc(db,"orders",o.id),{status:"Accepted",acceptedAt:serverTimestamp(),acceptedBy:currentUser.uid});printKOT(o,w);toast("Order accepted. KOT sent to print.")}catch(err){if(w)w.close();toast(err.message)}});
+ $("ordersList").querySelectorAll("[data-accept]").forEach(b=>b.onclick=async()=>{const o=orders.find(x=>x.id===b.dataset.accept);if(!o||o.status!=="Pending")return;const w=window.open("","_blank","width=380,height=600");try{await updateDoc(doc(db,"orders",o.id),{status:"Accepted",acceptedAt:serverTimestamp(),acceptedBy:currentUser.uid,acceptedByName:profile.name||currentUser.email,acceptedByRole:profile.role,...(profile.role==="captain"&&!o.captainId?{captainId:currentUser.uid,captainName:profile.name||currentUser.email}:{}),...(profile.role==="waiter"&&!o.waiterId?{waiterId:currentUser.uid,waiterName:profile.name||currentUser.email}:{})});printKOT(o,w);toast("Order accepted. KOT sent to print.")}catch(err){if(w)w.close();toast(err.message)}});
  $("ordersList").querySelectorAll("[data-reject]").forEach(b=>b.onclick=async()=>{const o=orders.find(x=>x.id===b.dataset.reject);if(o?.status==="Pending")await updateDoc(doc(db,"orders",o.id),{status:"Rejected",rejectedAt:serverTimestamp()})});
  $("ordersList").querySelectorAll("[data-status]").forEach(b=>b.onclick=async()=>{const o=orders.find(x=>x.id===b.dataset.id);try{await updateDoc(doc(db,"orders",b.dataset.id),{status:b.dataset.status,updatedAt:serverTimestamp()});if(b.dataset.status==="Served"&&o)autoEmailBill(o)}catch(err){toast(err.message)}});
  $("ordersList").querySelectorAll("[data-bill]").forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.id===b.dataset.bill);if(o)billModal(o)});
 }
-$("orderFilter").onchange=renderOrders;
+let ordView="all";
+const VIEWS={
+  captain:[["mine","My Orders"],["today","Today's Orders"],["all","Order Status"],["history","Order History"]],
+  waiter:[["mine","My Orders"],["accepted","Accepted Orders"],["all","Table Number"],["history","Order History"]],
+  def:[["all","All Orders"],["today","Today"],["history","History"]]
+};
+function initOrdViews(){
+  const v=VIEWS[profile.role]||VIEWS.def;ordView=v[0][0];
+  const draw=()=>{$("ordViews").innerHTML=v.map(([k,l])=>`<button class="chip ${k===ordView?"on":""}" data-ov="${k}">${l}</button>`).join("");
+    $("ordViews").querySelectorAll("[data-ov]").forEach(b=>b.onclick=()=>{ordView=b.dataset.ov;draw();renderOrders()})};
+  draw();
+}
+function filteredOrders(){
+  const st=$("orderFilter").value,tb=$("ordTable").value.trim(),f=$("ordFrom").value,t=$("ordTo").value;
+  const from=f?new Date(f+"T00:00:00"):null,to=t?new Date(t+"T23:59:59.999"):null,today=ymd(new Date());
+  return scopedOrders().filter(o=>{
+    const d=o.createdAt?.toDate?o.createdAt.toDate():null;
+    if(st&&o.status!==st)return false;
+    if(tb&&String(o.tableNumber||o.table)!==tb)return false;
+    if((from||to)&&!d)return false;
+    if(from&&d<from)return false;if(to&&d>to)return false;
+    if(ordView==="mine"&&!myOrder(o))return false;
+    if(ordView==="today"&&(!d||ymd(d)!==today))return false;
+    if(ordView==="accepted"&&!["Accepted","Preparing","Ready"].includes(o.status))return false;
+    if(ordView==="history"&&!["Served","Rejected"].includes(o.status))return false;
+    return true;
+  });
+}
+["orderFilter","ordFrom","ordTo","ordTable"].forEach(id=>{$(id).oninput=renderOrders;$(id).onchange=renderOrders});
+$("ordToday").onclick=()=>{$("ordFrom").value=$("ordTo").value=ymd(new Date());renderOrders()};
+$("ordAll").onclick=()=>{$("ordFrom").value=$("ordTo").value="";$("ordTable").value="";$("orderFilter").value="";renderOrders()};
+$("ordCsv").onclick=()=>{
+  const list=filteredOrders();if(!list.length){toast("No orders to export");return}
+  const head=["Order ID","Table","Date & Time","Captain","Waiter","Taken By","Taken By Role","Status","Items","Total"];
+  const rows=list.map(o=>[o.orderId||o.id.slice(-6).toUpperCase(),o.tableNumber||o.table||"-",o.createdAt?.toDate?o.createdAt.toDate().toLocaleString("en-IN"):"",o.captainName||"",o.waiterName||"",o.takenByName||o.acceptedByName||"",o.takenByRole||o.acceptedByRole||"",o.status,(o.items||[]).map(i=>i.name+" x"+i.qty).join("; "),o.total||0]);
+  const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  const csv=[head,...rows].map(r=>r.map(q).join(",")).join("\r\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));
+  a.download="orders-"+($("ordFrom").value||"all")+"_to_"+($("ordTo").value||"all")+".csv";
+  document.body.appendChild(a);a.click();a.remove();
+};
+$("newOrderBtn").onclick=()=>{
+  const av=menu.filter(m=>m.available!==false);
+  const opt=r=>'<option value="">-- None --</option>'+staff.filter(s=>s.role===r&&s.active!==false).map(s=>`<option value="${s.id}">${safe(s.name)}</option>`).join("");
+  $("modalRoot").innerHTML=`<div class="modalback"><div class="modal"><div class="modalhead"><h3>New order</h3><button class="close" id="closeModal">✕</button></div>
+  <div class="formgrid"><div class="field"><label>Table number *</label><input id="noTable"></div><div class="field"><label>Customer name</label><input id="noName"></div>
+  <div class="field"><label>Captain</label><select id="noCap">${opt("captain")}</select></div><div class="field"><label>Waiter</label><select id="noWai">${opt("waiter")}</select></div>
+  <div class="field wide"><label>Note</label><input id="noNote"></div></div>
+  ${av.map(m=>`<div class="crow"><div><b>${safe(m.name)}</b><div class="muted" style="font-size:12px">${money(m.price)}</div></div><input type="number" min="0" value="0" data-q="${m.id}" style="width:70px;padding:8px;border:1px solid var(--line);border-radius:8px"></div>`).join("")}
+  <button class="btn full" id="noSave" style="margin-top:12px">Place order & print KOT</button></div></div>`;
+  $("closeModal").onclick=()=>$("modalRoot").innerHTML="";
+  if(profile.role==="captain"){$("noCap").value=currentUser.uid;$("noCap").disabled=true}
+  if(profile.role==="waiter"){$("noWai").value=currentUser.uid;$("noWai").disabled=true}
+  $("noSave").onclick=async()=>{
+    const items=[...document.querySelectorAll("[data-q]")].map(i=>{const m=menu.find(x=>x.id===i.dataset.q);return{id:m.id,name:m.name,price:Number(m.price)||0,qty:Number(i.value)||0}}).filter(i=>i.qty>0);
+    const table=$("noTable").value.trim();
+    if(!table||!items.length){toast("Enter table number and at least one item");return}
+    const nm=id=>staff.find(s=>s.id===id)?.name||"",capId=$("noCap").value,waiId=$("noWai").value,b=calcBill(items);
+    const w=window.open("","_blank","width=380,height=600"),ref=doc(collection(db,"orders")),tn=parseInt(table,10)||table;
+    const data={orderId:ref.id.slice(-6).toUpperCase(),tableNumber:tn,table:tn,items,total:b.grand,subtotal:b.subtotal,bill:{scRemoved:false,discountType:"none",discountValue:0},status:"Accepted",customerName:$("noName").value.trim(),customerEmail:"",note:$("noNote").value.trim(),captainId:capId,captainName:nm(capId),waiterId:waiId,waiterName:nm(waiId),takenById:currentUser.uid,takenByName:profile.name||currentUser.email,takenByRole:profile.role,acceptedBy:currentUser.uid,acceptedAt:serverTimestamp(),createdAt:serverTimestamp()};
+    try{await setDoc(ref,data);printKOT({...data,id:ref.id},w);$("modalRoot").innerHTML="";toast("Order placed")}
+    catch(e){if(w)w.close();toast(e.message)}
+  };
+};
+
 function renderKitchen(){
  const list=orders.filter(o=>["Accepted","Preparing"].includes(o.status));
  $("kitchenList").innerHTML=list.length?list.map(o=>orderCard(o,"chef")).join(""):'<div class="panel empty">No active kitchen tickets. Only accepted orders appear here.</div>';
@@ -381,6 +469,7 @@ function printKOT(o,pre){
  w.document.write(`<html><head><title>KOT</title><style>@page{size:80mm auto;margin:0}*{box-sizing:border-box}html,body{width:80mm;margin:0;padding:0}body{font:14px monospace;padding:3mm}h2,p{text-align:center}table{width:100%;border-collapse:collapse}td{padding:7px 0;border-bottom:1px dashed #aaa} @media print{html,body{width:80mm;margin:0}}</style></head><body><h2>THE CHAP HOUSE</h2><p>Add Level 3, SLN Terminus<br>Jayabheri Enclave, Gachibowli<br>Hyderabad, Telangana 500032</p><hr><p>KITCHEN ORDER TICKET<br>Order ${safe(o.id.slice(-6))}<br>TABLE ${safe(o.tableNumber||o.table||"-")}</p><hr><table>${rows}</table><hr>${o.note?"<p>NOTE: "+safe(o.note)+"</p><hr>":""}<p>WAITER ACCEPTED</p><script>window.onload=()=>window.print();<\/script></body></html>`);w.document.close();
 }
 function renderStats(){
+ const orders=scopedOrders();
  $("statOrders").textContent=orders.length;
  $("statPending").textContent=orders.filter(o=>o.status==="Pending").length;
  $("statPreparing").textContent=orders.filter(o=>o.status==="Preparing").length;
@@ -639,7 +728,7 @@ function initCustomer(){
     const btn=$("cPlace");btn.disabled=true;btn.textContent="Placing order…";
     try{
       const items=Object.values(cart).map(x=>({id:x.id,name:x.name,price:x.price,qty:x.qty}));
-      const ref=await addDoc(collection(db,"orders"),{tableNumber:tableNo,table:tableNo,items,total:calcBill(items).grand,subtotal:calcBill(items).subtotal,bill:{scRemoved:false,discountType:"none",discountValue:0},status:"Pending",customerEmail:email,customerName:$("cName").value.trim(),note:$("cNote").value.trim(),createdAt:serverTimestamp()});
+      const ref=doc(collection(db,"orders"));await setDoc(ref,{orderId:ref.id.slice(-6).toUpperCase(),captainId:"",captainName:"",waiterId:"",waiterName:"",takenByName:"Customer (QR)",takenByRole:"customer",tableNumber:tableNo,table:tableNo,items,total:calcBill(items).grand,subtotal:calcBill(items).subtotal,bill:{scRemoved:false,discountType:"none",discountValue:0},status:"Pending",customerEmail:email,customerName:$("cName").value.trim(),note:$("cNote").value.trim(),createdAt:serverTimestamp()});
       try{localStorage.setItem(LS,ref.id);localStorage.setItem("chap_email",email)}catch(_){}
       cart={};$("cNote").value="";$("cCartSheet").classList.add("hidden");refresh();track(ref.id);
       window.scrollTo({top:0,behavior:"smooth"});
