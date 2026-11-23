@@ -378,7 +378,7 @@ function renderKitchen(){
 function printKOT(o,pre){
  const w=pre||window.open("","_blank","width=380,height=600");if(!w){toast("Allow pop-ups to print KOT");return}
  const rows=(o.items||[]).map(i=>`<tr><td>${safe(i.name)}</td><td>${i.qty}</td></tr>`).join("");
- w.document.write(`<html><head><title>KOT</title><style>body{font:14px monospace;width:280px;margin:12px}h2,p{text-align:center}table{width:100%;border-collapse:collapse}td{padding:7px 0;border-bottom:1px dashed #aaa}</style></head><body><h2>THE CHAP HOUSE</h2><p>Add Level 3, SLN Terminus<br>Jayabheri Enclave, Gachibowli<br>Hyderabad, Telangana 500032</p><hr><p>KITCHEN ORDER TICKET<br>Order ${safe(o.id.slice(-6))}<br>TABLE ${safe(o.tableNumber||o.table||"-")}</p><hr><table>${rows}</table><hr>${o.note?"<p>NOTE: "+safe(o.note)+"</p><hr>":""}<p>WAITER ACCEPTED</p><script>window.onload=()=>window.print();<\/script></body></html>`);w.document.close();
+ w.document.write(`<html><head><title>KOT</title><style>@page{size:80mm auto;margin:0}*{box-sizing:border-box}html,body{width:80mm;margin:0;padding:0}body{font:14px monospace;padding:3mm}h2,p{text-align:center}table{width:100%;border-collapse:collapse}td{padding:7px 0;border-bottom:1px dashed #aaa} @media print{html,body{width:80mm;margin:0}}</style></head><body><h2>THE CHAP HOUSE</h2><p>Add Level 3, SLN Terminus<br>Jayabheri Enclave, Gachibowli<br>Hyderabad, Telangana 500032</p><hr><p>KITCHEN ORDER TICKET<br>Order ${safe(o.id.slice(-6))}<br>TABLE ${safe(o.tableNumber||o.table||"-")}</p><hr><table>${rows}</table><hr>${o.note?"<p>NOTE: "+safe(o.note)+"</p><hr>":""}<p>WAITER ACCEPTED</p><script>window.onload=()=>window.print();<\/script></body></html>`);w.document.close();
 }
 function renderStats(){
  $("statOrders").textContent=orders.length;
@@ -432,7 +432,7 @@ function billHTML(o,b){
   const td="padding:4px 0;font-size:13px;";
   const rows=(o.items||[]).map(i=>`<tr><td style="${td}">${safe(i.name)}</td><td style="${td}text-align:center">${i.qty}</td><td style="${td}text-align:right">${fmt(i.price)}</td><td style="${td}text-align:right">${fmt(Number(i.price)*Number(i.qty))}</td></tr>`).join("");
   const hr='<hr style="border:0;border-top:1px dashed #999;margin:10px 0">';
-  return `<div style="font-family:Arial,sans-serif;max-width:380px;margin:auto;color:#111;border:1px solid #ddd;padding:16px;background:#fff">
+  return `<div style="font-family:Arial,sans-serif;width:80mm;max-width:80mm;box-sizing:border-box;margin:0 auto;color:#111;border:0;padding:3mm;background:#fff">
   <div style="text-align:center"><div style="font-size:20px;font-weight:800">${RESTAURANT.name}</div><div style="font-size:12px;color:#555;line-height:1.5">${RESTAURANT.address}${RESTAURANT.gstin?"<br>GSTIN: "+safe(RESTAURANT.gstin):""}</div></div>${hr}
   <div style="font-size:12px;line-height:1.7">Bill No: <b>#${safe(o.id.slice(-6).toUpperCase())}</b><br>Date: ${d.toLocaleString("en-IN")}<br>Table: <b>${safe(o.tableNumber||o.table||"-")}</b>${o.customerName?"<br>Customer: "+safe(o.customerName):""}</div>${hr}
   <table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid #999"><th align="left" style="font-size:12px;padding:4px 0">Item</th><th style="font-size:12px;padding:4px 0">Qty</th><th align="right" style="font-size:12px;padding:4px 0">Rate</th><th align="right" style="font-size:12px;padding:4px 0">Amount</th></tr></thead><tbody>${rows}</tbody></table>${hr}
@@ -476,7 +476,7 @@ function billModal(o){
   $("bSave").onclick=async()=>{try{await save();toast("Bill saved")}catch(err){toast(err.message)}};
   $("bPrint").onclick=async()=>{
     const w=window.open("","_blank","width=420,height=700");if(!w){toast("Allow pop-ups to print the bill");return}
-    try{const b=await save();w.document.write(`<html><head><title>Bill</title></head><body style="margin:12px">${billHTML(o,b)}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close()}
+    try{const b=await save();w.document.write(`<html><head><title>Bill</title><style>@page{size:80mm auto;margin:0}*{box-sizing:border-box}html,body{width:80mm;margin:0;padding:0}body{font-family:Arial,sans-serif}@media print{html,body{width:80mm;margin:0}}</style></head><body>${billHTML(o,b)}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close()}
     catch(err){w.close();toast(err.message)}
   };
   $("bEmailBtn").onclick=async()=>{
