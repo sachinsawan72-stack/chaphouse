@@ -138,7 +138,7 @@
         <div class="panel">
           <div class="repbar"><label>From</label><input type="date" id="repFrom"><label>To</label><input type="date" id="repTo"><select id="repStatus"><option value="active">All accepted orders</option><option value="Served">Served orders only</option></select></div>
           <div class="repbar"><button class="btn secondary small" data-range="today">Today</button><button class="btn secondary small" data-range="yesterday">Yesterday</button><button class="btn secondary small" data-range="week">Last 7 days</button><button class="btn secondary small" data-range="month">This month</button><button class="btn secondary small" data-range="all">All time</button></div>
-          <div class="repbar"><button class="chip on" data-rep="daywise">Day-wise sales</button><button class="chip" data-rep="bills">Bill-wise sales</button><button class="chip" data-rep="discount">Discount report</button><button class="chip" data-rep="items">Item-wise sales</button></div>
+          <div class="repbar"><button class="chip on" data-rep="daywise">Day-wise sales</button><button class="chip" data-rep="bills">Bill-wise sales</button><button class="chip" data-rep="discount">Discount report</button><button class="chip" data-rep="sc">S.C. report</button><button class="chip" data-rep="gst">GST report</button><button class="chip" data-rep="items">Item-wise sales</button></div>
           <div id="repStats" class="stats"></div>
           <div class="tablewrap" id="repTable"></div>
         </div>
@@ -538,6 +538,16 @@ function buildReport(rows){
     types=["t","t","t","t","t","m","m","m"];
     body=dr.map(x=>[x.d.toLocaleString("en-IN"),"#"+x.o.id.slice(-6).toUpperCase(),String(x.o.tableNumber||x.o.table||"-"),x.o.customerName||"-",x.b.discountType==="percent"?x.b.discountValue+"%":"Flat Rs "+x.b.discountValue,x.b.subtotal,x.b.discount,x.b.grand]);
     foot=["TOTAL","","","","",S(dr,"subtotal"),S(dr,"discount"),S(dr,"grand")];
+  }else if(repView==="sc"){
+    head=["Date & Time","Bill No","Table","Customer","S.C. Status","Sub Total","Discount","S.C. Rate","S.C. Amount","Grand Total"];
+    types=["t","t","t","t","t","m","m","t","m","m"];
+    body=rows.map(x=>[x.d.toLocaleString("en-IN"),"#"+x.o.id.slice(-6).toUpperCase(),String(x.o.tableNumber||x.o.table||"-"),x.o.customerName||"-",x.b.scRemoved?"Removed":"Applied",x.b.subtotal,x.b.discount,SC_RATE+"%",x.b.sc,x.b.grand]);
+    foot=["TOTAL","","","","",S(rows,"subtotal"),S(rows,"discount"),"",S(rows,"sc"),S(rows,"grand")];
+  }else if(repView==="gst"){
+    head=["Date & Time","Bill No","Table","Customer","GSTIN","Taxable Value","CGST @ "+(GST_RATE/2)+"%","SGST @ "+(GST_RATE/2)+"%","Total GST","Grand Total"];
+    types=["t","t","t","t","t","m","m","m","m","m"];
+    body=rows.map(x=>[x.d.toLocaleString("en-IN"),"#"+x.o.id.slice(-6).toUpperCase(),String(x.o.tableNumber||x.o.table||"-"),x.o.customerName||"-",RESTAURANT.gstin||"-",x.b.taxable,x.b.cgst,x.b.sgst,r2(x.b.cgst+x.b.sgst),x.b.grand]);
+    foot=["TOTAL","","","","",S(rows,"taxable"),S(rows,"cgst"),S(rows,"sgst"),r2(S(rows,"cgst")+S(rows,"sgst")),S(rows,"grand")];
   }else{
     head=["Item","Qty Sold","Sales Amount (before tax)"];types=["t","n","m"];
     const g={};rows.forEach(x=>(x.o.items||[]).forEach(i=>{const a=g[i.name]=g[i.name]||{q:0,m:0};a.q+=Number(i.qty)||0;a.m+=(Number(i.price)||0)*(Number(i.qty)||0)}));
@@ -556,7 +566,7 @@ function reportTableHTML(t){
 function renderReport(){
   if(!$("repTable"))return;
   const rows=reportRows(),T=k=>sumBy(rows,k);
-  $("repStats").innerHTML=[["Orders",rows.length],["Total Qty",T("qty")],["Sub Total",fmt(T("subtotal"))],["Discount",fmt(T("discount"))],["S.C Charge",fmt(T("sc"))],["CGST + SGST",fmt(r2(T("cgst")+T("sgst")))],["Round Off",fmt(T("roundOff"))],["Net Sales",fmt(T("grand"))]].map(c=>`<div class="stat"><small>${c[0]}</small><strong>${c[1]}</strong></div>`).join("");
+  $("repStats").innerHTML=[["Orders",rows.length],["Total Qty",T("qty")],["Sub Total",fmt(T("subtotal"))],["Discount",fmt(T("discount"))],["Taxable Value",fmt(T("taxable"))],["S.C. Collected",fmt(T("sc"))],["CGST",fmt(T("cgst"))],["SGST",fmt(T("sgst"))],["Total GST",fmt(r2(T("cgst")+T("sgst")))],["Round Off",fmt(T("roundOff"))],["Net Sales",fmt(T("grand"))]].map(c=>`<div class="stat"><small>${c[0]}</small><strong>${c[1]}</strong></div>`).join("");
   document.querySelectorAll("[data-rep]").forEach(b=>b.classList.toggle("on",b.dataset.rep===repView));
   repData=buildReport(rows);
   $("repTable").innerHTML=reportTableHTML(repData);
@@ -574,7 +584,7 @@ $("repCsv").onclick=()=>{
 };
 $("repPrint").onclick=()=>{
   const w=window.open("","_blank","width=900,height=700");if(!w){toast("Allow pop-ups to print");return}
-  const title={daywise:"Day-wise Sales Report",bills:"Bill-wise Sales Report",discount:"Discount Report",items:"Item-wise Sales Report"}[repView];
+  const title={daywise:"Day-wise Sales Report",bills:"Bill-wise Sales Report",discount:"Discount Report",sc:"Service Charge (S.C.) Report",gst:"GST Report",items:"Item-wise Sales Report"}[repView];
   w.document.write(`<html><head><title>${title}</title><style>body{font:12px Arial;margin:16px}h2,h3,p{margin:4px 0}table{border-collapse:collapse;width:100%;margin-top:12px;min-width:0!important}th,td{border:1px solid #bbb;padding:5px 7px;text-align:left}th{background:#f0f0f0}tfoot td{font-weight:bold}</style></head><body><h2>${RESTAURANT.name}</h2><h3>${title}</h3><p>Period: ${$("repFrom").value||"start"} to ${$("repTo").value||"today"} · Generated: ${new Date().toLocaleString("en-IN")}</p>${$("repTable").innerHTML}<script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
 };
