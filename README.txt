@@ -1,4 +1,18 @@
-# THE CHAP HOUSE - Restaurant Management (Full Security Update)
+# THE CHAP HOUSE - Restaurant Management (Full Security Update + Veg/Non-Veg)
+
+## Naya bug-fix is update me
+**Menu me Veg / Non-Veg option add kiya gaya** (pehle food item banate/edit karte waqt is cheez ka
+option hi nahi tha):
+- Admin Panel -> Food Menu -> "+ Add food item" (ya kisi item ka "Edit") kholne par ab ek naya
+  dropdown "Food type *" dikhega: 🟢 Veg / 🔺 Non-Veg. Default Veg rehta hai.
+- Food menu table me ab ek "Type" column hai jisme chhota green (veg) ya red triangle (non-veg)
+  mark dikhta hai.
+- Customer QR menu me bhi har dish ke naam ke saath wahi veg/non-veg mark dikhega.
+- Purane (is update se pehle bane) food items par koi `foodType` save nahi hai, to wo abhi "Veg"
+  (green) dikhenge — unhe ek baar Edit karke sahi type (Veg/Non-Veg) set kar dein.
+- Firestore Rules me koi badlaav ki zaroorat nahi thi (menu collection pe pehle se hi field-level
+  restriction nahi thi), isliye `firestore.rules` same hai jo pichli baar diya tha.
+
 
 ## Folder
 - `public/index.html`  -> poora website (yehi Vercel/Hosting par deploy hoga)
