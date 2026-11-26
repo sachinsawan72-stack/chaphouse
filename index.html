@@ -124,7 +124,7 @@
 
       <section id="page-tables" class="page hidden admin-only">
         <div class="pagehead"><div><h1>Tables & QR codes</h1><p>Generate a unique menu link for each restaurant table.</p></div><button class="btn" id="generateTablesBtn">Generate 50 tables</button></div>
-        <div class="notice">For QR codes to work on customer phones, deploy this website online and use its public URL. A localhost link only works on your own computer.</div>
+        <div class="notice">For QR codes to work on customer phones, deploy this website online and use its public HTTPS URL. A localhost link only works on your own computer. Also publish the included firestore.rules file in Firebase Console → Firestore Database → Rules; otherwise customer menu reads and unauthenticated QR order writes will be denied.</div>
         <div class="panel"><div class="toolbar"><input id="publicUrl" placeholder="https://your-restaurant.web.app" style="max-width:420px"><button class="btn secondary" id="makeQRBtn">Generate QR codes</button><button class="btn secondary" id="printQRBtn">Print QR sheet</button></div><div id="qrGrid" class="qrgrid"></div></div>
       </section>
 
@@ -367,9 +367,15 @@ $("staffSearch").oninput=renderStaff;$("staffRoleFilter").onchange=renderStaff;
 /* TABLE QR */
 $("generateTablesBtn").onclick=async()=>{try{for(let i=1;i<=50;i++){const id=String(i).padStart(2,"0");await setDoc(doc(db,"tables",id),{tableNumber:i,active:true},{merge:true})}toast("50 tables created")}catch(e){toast(e.message)}};
 $("makeQRBtn").onclick=()=>{
- const base=$("publicUrl").value.trim().replace(/\/$/,"");if(!base){toast("Enter your public website URL first");return}
+ const raw=$("publicUrl").value.trim();if(!raw){toast("Enter your public website URL first");return}
+ let base;try{base=new URL(raw);if(!/^https?:$/.test(base.protocol))throw new Error("Use a public HTTPS website URL");}catch(e){toast("Enter a valid public website URL (https://...)");return}
+ if(typeof QRCode==="undefined"){toast("QR library did not load. Check internet/CDN access and reload.");return}
  $("qrGrid").innerHTML="";
- for(let i=1;i<=50;i++){const n=String(i).padStart(2,"0"),url=base+"/?table="+i;const box=document.createElement("div");box.className="qrbox";box.innerHTML=`<b>TABLE ${n}</b><div id="qr${i}"></div><small class="muted">${safe(url)}</small>`;$("qrGrid").appendChild(box);new QRCode(box.querySelector("#qr"+i),{text:url,width:110,height:110})}
+ for(let i=1;i<=50;i++){
+   const n=String(i).padStart(2,"0"),u=new URL(base.href);u.searchParams.set("table",String(i));const url=u.toString();
+   const box=document.createElement("div");box.className="qrbox";box.innerHTML=`<b>TABLE ${n}</b><div id="qr${i}"></div><small class="muted">${safe(url)}</small>`;$("qrGrid").appendChild(box);
+   new QRCode(box.querySelector("#qr"+i),{text:url,width:110,height:110});
+ }
 };
 $("printQRBtn").onclick=()=>window.print();
 
@@ -692,7 +698,7 @@ function initCustomer(){
   onSnapshot(collection(db,"menu"),snap=>{
     cmenu=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.available!==false);
     renderCMenu();
-  },err=>{$("cMenu").innerHTML='<div class="empty">Could not load the menu. '+safe(err.message)+'</div>'});
+  },err=>{$("cMenu").innerHTML='<div class="empty">Could not load the menu. '+safe(err.message)+'<br><br>Restaurant admin: check Firestore Rules and allow public read access to the menu collection.</div>'});
   function renderCMenu(){
     const cats=["All",...new Set(cmenu.map(x=>x.category).filter(Boolean))];
     $("cCats").innerHTML=cats.map(c=>`<button class="chip ${c===activeCat?"on":""}" data-cat="${safe(c)}">${safe(c)}</button>`).join("");
@@ -745,7 +751,10 @@ function initCustomer(){
       const cls=st==="Pending"?"pending":st==="Preparing"?"prep":st==="Rejected"?"off":"";
       $("cTrack").classList.remove("hidden");
       $("cTrack").innerHTML=`<div class="tk"><b>Your order #${safe(id.slice(-6))}</b><span class="pill ${cls}">${safe(st)}</span></div><p>${safe(msg)}</p><p class="muted">${(o.items||[]).map(i=>safe(i.name)+" × "+i.qty).join(", ")} · <b>${money(o.total)}</b></p>`;
-    },()=>{});
+    },err=>{
+      $("cTrack").classList.remove("hidden");
+      $("cTrack").innerHTML=`<b>Order submitted.</b><p>Your order is in the restaurant system. Please ask your waiter for status. (${safe(err.code||"tracking unavailable")})</p>`;
+    });
   }
   try{const last=localStorage.getItem(LS);if(last)track(last)}catch(_){}
 }
